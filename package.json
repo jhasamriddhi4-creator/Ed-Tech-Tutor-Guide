@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "dev": "node -e \"const http=require('http'),fs=require('fs'),path=require('path');const port=process.env.PORT||5173,root=process.cwd(),types={'.html':'text/html','.css':'text/css','.js':'text/javascript'};http.createServer((req,res)=>{let u=decodeURIComponent((req.url||'/').split('?')[0]);let f=path.resolve(root,u==='/'?'index.html':'.'+u);if(!f.startsWith(root)||!fs.existsSync(f)){res.writeHead(404);return res.end('Not found')}res.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});fs.createReadStream(f).pipe(res)}).listen(port,()=>console.log('AI Guru server running at http://localhost:'+port))\"",
+    "build": "node --check src/app.js && node --check src/services/aiGuru.js && node --check src/prompts/guardrails.js",
+    "preview": "node -e \"const http=require('http'),fs=require('fs'),path=require('path');const port=process.env.PORT||4173,root=process.cwd(),types={'.html':'text/html','.css':'text/css','.js':'text/javascript'};http.createServer((req,res)=>{let u=decodeURIComponent((req.url||'/').split('?')[0]);let f=path.resolve(root,u==='/'?'index.html':'.'+u);if(!f.startsWith(root)||!fs.existsSync(f)){res.writeHead(404);return res.end('Not found')}res.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});fs.createReadStream(f).pipe(res)}).listen(port,()=>console.log('AI Guru server running at http://localhost:'+port))\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

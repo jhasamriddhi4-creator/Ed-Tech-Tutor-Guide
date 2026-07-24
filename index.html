@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>AI Guru</title>
+        <link rel="stylesheet" href="src/styles.css"/>
+    </head>
+    <body>
+        <main>
+            <section class="hero">
+                <div>
+                    <p class="eyebrow">AI Guru • AI-Powered Personalized EdTech Tutor</p>
+                    <h1>Learn Smarter. Practice Better. Grow Faster.</h1>
+                    <p>Portfolio-ready capstone for Computer Science students: multi-LLM tutoring, RAG PDF chat, learning agents, safety guardrails and analytics.</p>
+                </div>
+                <div class="login">
+                    <h3>Student Login</h3>
+                    <input placeholder="email@student.com"/>
+                    <input placeholder="password" type="password"/>
+                    <button>Sign in / Sign up</button>
+                </div>
+            </section>
+
+            <section class="grid cards" id="cards">
+            </section>
+            
+            <section class="layout">
+                <nav id="tabs">
+                </nav>
+                <div class="workspace">
+                    <h2 id="title">AI Tutor</h2>
+                    <textarea id="pdf" hidden></textarea>
+                    <textarea id="prompt"></textarea>
+                    <button id="run">Run AI Guru</button>
+                    <pre id="output"></pre>
+                </div>
+            </section>
+            
+            <section class="grid">
+                <article>
+                    <h2>📈 Progress Analytics</h2>
+                    <div id="lineChart" class="chart">
+                    </div>
+                </article>
+                
+                <article>
+                    <h2>📊 Topic Mastery</h2>
+                    <div id="barChart" class="chart"></div>
+                </article>
+            </section>
+        </main>
+        
+        <script type="module" src="src/app.js"></script>
+    </body>
+</html>
