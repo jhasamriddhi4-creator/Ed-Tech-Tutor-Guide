@@ -196,30 +196,52 @@ router.post("/pdf-text", (req, res, next) => {
       return res.status(400).json({ success: false, message: "This file does not appear to be a valid PDF." });
     }
 
-    const parsed = await pdfParse(file.buffer);
-    let text = String(parsed.text || "").replace(/\\u0000/g, "").trim();
+    let text = "";
+    let extractionError = null;
     let extractionMethod = "pdf-text";
 
-    // Text-based extraction is fast and cheap. Use Gemini document OCR only when
-    // a scanned/image-only PDF contains too little extractable text.
+    // Try local text extraction first. A parser failure must not prevent the
+    // OCR fallback because some scanned PDFs are malformed for text parsers.
+    try {
+      const parsed = await pdfParse(file.buffer);
+      text = String(parsed.text || "").replace(/\\u0000/g, "").trim();
+    } catch (error) {
+      extractionError = error;
+      console.warn("PDF text extraction failed; trying Gemini OCR:", error?.message || error);
+    }
+
     if (text.length < 40) {
       try {
         text = await extractPdfTextWithGemini(file.buffer);
         extractionMethod = "gemini-ocr";
       } catch (ocrError) {
-        console.error("Scanned PDF OCR failed:", ocrError);
+        console.error("Gemini PDF OCR failed:", ocrError);
+        const details = String(ocrError?.message || "").toLowerCase();
+        let message = "Gemini could not read this scanned PDF. Try a clearer or smaller PDF, or paste the text manually.";
+        if (/api key|api_key|unauthorized|permission|403|401/.test(details)) {
+          message = "Gemini OCR authentication failed. Check GEMINI_API_KEY in server/.env and restart the backend.";
+        } else if (/quota|rate.?limit|429|resource_exhausted/.test(details)) {
+          message = "Gemini OCR quota or rate limit reached. Wait and try again, or check your Gemini API quota.";
+        } else if (/model|not found|unsupported|400|invalid argument/.test(details)) {
+          message = "Gemini could not process this PDF with the configured model. Check GEMINI_MODEL in server/.env and ensure it supports PDF input.";
+        } else if (/too large|payload|413|size/.test(details)) {
+          message = "This PDF is too large for Gemini OCR. Try a smaller PDF or split it into fewer pages.";
+        }
         return res.status(502).json({
           success: false,
-          message: "This PDF appears to be scanned, and OCR could not process it. Check your Gemini API key, model access, and quota, then try again.",
+          message,
+          ...(process.env.NODE_ENV === "development" ? { detail: String(ocrError?.message || ocrError).slice(0, 400) } : {}),
         });
       }
     }
 
     text = String(text || "").replace(/\\u0000/g, "").trim();
     if (text.length < 40) {
+      const detail = extractionError?.message;
+      console.warn("No usable PDF text extracted.", detail || "");
       return res.status(422).json({
         success: false,
-        message: "No readable text could be extracted from this PDF. Try a clearer scan or paste the text manually.",
+        message: "No readable text was found in this PDF. It may be blank, password-protected, or too blurry. Try a clearer scan or paste text manually.",
       });
     }
 
