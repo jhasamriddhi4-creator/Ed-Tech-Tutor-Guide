@@ -23,29 +23,10 @@ router.use((req, res, next) => {
     return next();
   }
 
-  const body = req.body || {};
-  let userInput;
-
-  switch (path) {
-    case "/tutor":
-    case "/rag":
-      userInput = body.question;
-      break;
-    case "/quiz":
-    case "/notes":
-      userInput = body.topic;
-      break;
-    case "/code":
-      userInput = body.code;
-      break;
-    case "/roadmap":
-      userInput = body.goal;
-      break;
-    default:
-      return next();
-  }
-
-  const guard = evaluateInputGuardrails(userInput);
+  // Inspect the complete request body, not only its primary field.
+  // Injection attempts may be buried in code, comments, strings, pasted sources,
+  // nested values, or auxiliary fields.
+  const guard = evaluateInputGuardrails(req.body || {});
   if (!guard.allowed) {
     return res.status(400).json({
       success: false,
