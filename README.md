@@ -1,75 +1,110 @@
-# Ed-Tech-Tutor-Guide
-\ No newline at end of file
-# AI Guru — AI-Powered Personalized EdTech Tutor
+# AI Guru — Ed-Tech Tutor Guide
 
 **Tagline:** Learn Smarter. Practice Better. Grow Faster.
 
-AI Guru is a portfolio-ready capstone project for a Computer Science subject-focused EdTech tutor. It demonstrates an end-to-end AI application with multi-LLM routing, RAG-style PDF tutoring, AI agents, safety guardrails.
-
-## Capstone Requirement Mapping
-
-| Requirement | Implementation |
-| --- | --- |
-| End-to-end AI application | Static web app prototype with tutor, quiz, code review, notes, RAG and analytics modules |
-| Real-world problem | Personalized after-class learning support for students |
-| Multiple LLMs | Service router models OpenAI GPT and Google Gemini responsibilities |
-| RAG | PDF text chunk retrieval with grounded answer/refusal behavior |
-| Vector database | Designed for ChromaDB integration |
-| AI Agent | Planner, Tutor, Quiz, Evaluator and Notes agents |
-| Safety guardrails | Prompt injection, academic integrity and grounded-answer checks |
-| Deployable | Static build check ready for Vercel/Netlify |
-
+AI Guru is a student-focused Computer Science learning prototype with Gemini-backed tutoring, MCQ quizzes, code review, notes, a study roadmap, document-grounded Q&A, browser voice features, and a saved learning library.
 
 ## Features
 
-- Student login/signup UI and dashboard.
-- AI Tutor explanations at beginner, intermediate and advanced levels.
-- Quiz generator for MCQ, coding, fill-in-the-blank and true/false questions.
-- Code evaluator for correctness, complexity and improvement suggestions.
-- Notes, revision notes and flashcards.
-- PDF Chat/RAG module that answers only from provided material.
-- Voice tutor flow design using browser speech-to-text and text-to-speech.
-- Learning roadmap planner agent.
-- Progress analytics and admin snapshot.
+- **AI Tutor:** structured explanations and practice questions.
+- **Quiz Generator:** configurable question count and difficulty; answers are graded on the backend.
+- **Quiz History:** completed attempts are stored in SQLite with topic, difficulty, score, accuracy, and timestamp.
+- **Saved Library:** save tutor answers, document-grounded answers, code reviews, notes, and roadmaps; view or delete saved items.
+- **Progress Dashboard:** quiz count, average quiz accuracy, saved resources, practiced topics, accuracy history, and per-topic accuracy are derived from stored records.
+- **Code Review:** educational feedback on supplied code; it does not execute code.
+- **Study Roadmap and Notes:** generated on request.
+- **Document-grounded Q&A:** answers from text supplied in the document text area. PDF file extraction and vector search are not implemented yet.
+- **Voice Tutor:** records a short microphone clip, transcribes it with Gemini audio understanding, answers the question, and reads the answer aloud where browser speech synthesis is supported.
+- **Student accounts:** email/password registration and sign-in, scrypt password hashing, signed HttpOnly session cookie, and server-side ownership checks for AI and saved student data.
 
-## Tech Stack
+## Technology
 
-HTML, CSS, JavaScript, Node/Express target architecture, OpenAI GPT, Google Gemini, LangChain-style orchestration, ChromaDB target vector store, upabase target auth/database and Web Speech API target voice layer.
+- Frontend: HTML, CSS, vanilla JavaScript
+- Backend: Node.js and Express
+- AI provider: Google Gemini via `@google/genai`
+- Persistence: SQLite via `better-sqlite3`
+- Voice input: browser MediaRecorder + Gemini audio transcription; voice output: browser SpeechSynthesis
 
-## Getting Started
+## Requirements
+
+- A supported Node.js LTS version (Node 20 or newer recommended)
+- A Google Gemini API key for AI features
+
+## Setup
+
+### 1. Start the backend
+
+Open a terminal in the `server` folder:
+
+```bash
+cd server
+npm install
+```
+
+Create `server/.env` and add your key. Do not commit this file:
+
+```env
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=your_available_gemini_model
+AUTH_SECRET=replace_with_a_random_secret_at_least_32_characters
+PORT=5000
+```
+
+Use a model name available to your Gemini API account. Quotas and model access depend on your Google AI project. Keep AUTH_SECRET private and use a different random value for each deployment. Generate a random secret with Node.js crypto and paste it into server/.env.
+
+Start the backend:
 
 ```bash
 npm run dev
 ```
 
-## Build
+The API listens on `http://localhost:5000`.
+
+### 2. Start the frontend
+
+Open a second terminal at the repository root:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+### 3. Verify the build
+
+From the repository root:
 
 ```bash
 npm run build
 ```
 
-## Repository Guide
+## Persistence details
 
-- `src/app.js` — application shell, module UI wiring and chart rendering.
-- `src/services/aiGuru.js` — multi-LLM router and AI module service functions.
-- `src/prompts/guardrails.js` — prompt safety and grounded-answer guardrails.
-- `src/data/sampleData.js` — dashboard analytics sample data.
+- SQLite data is created at `server/data/ai-guru.sqlite` by default.
+- Set `AI_GURU_DB_PATH` in the backend environment to use a different database path.
+- The database directory and SQLite files are ignored by Git.
+- Student accounts are stored in SQLite. Passwords are hashed with Node.js scrypt; raw passwords are not stored.
+- Sessions use a signed, HttpOnly cookie with a seven-day expiry. Set AUTH_SECRET before starting the backend.
+- Student data and AI routes require a valid session and use the account ID from that session for ownership checks.
+- During registration, the current browser can migrate its existing guest quiz history and saved items into the new account.
+- Before public production deployment, add rate limiting, email verification, password reset, security monitoring, and a CSRF review; use HTTPS.
 
+## Current limitations / next steps
 
-## Environment Variables for Full Production Version
+- Add email verification, password reset, and authentication rate limiting before public deployment.
+- Add PDF upload and text extraction.
+- Add chunking, embeddings, and semantic retrieval for large documents.
+- Add automated integration tests and production deployment configuration.
+- Improve prompt-injection protections and API rate limiting.
 
-```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-OPENAI_API_KEY=
-GOOGLE_GEMINI_API_KEY=
-CHROMA_URL=
-```
+## Repository guide
 
-## Deployment
-
-1. Push to GitHub.
-2. Import repository into Vercel.
-3. Add environment variables.
-4. Run `npm run build`.
-5. Publish the generated app.
+- `src/app.js` — student UI, quiz flow, saved library, and dashboard.
+- `src/services/aiGuru.js` — frontend API client.
+- `src/prompts/guardrails.js` — frontend prompt helper/guardrail logic.
+- `server/src/index.js` — Express app and API routes.
+- `server/src/routes/ai.js` — Gemini-backed AI endpoints and quiz grading.
+- `server/src/routes/student.js` — authenticated saved items and student-data endpoints.
+- `server/src/routes/auth.js` — registration, sign-in, sign-out, and signed sessions.
+- `server/src/services/studentStore.js` — SQLite schema and persistence operations.
+- `server/data/ai-guru.sqlite` — local database created at runtime (not committed).

@@ -218,3 +218,149 @@
   margin: 0;
   color: #475569;
 }
+
+.save-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.save-controls .quiz-status {
+  margin: 0;
+}
+
+.library-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.saved-item {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.saved-item-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.chart .empty-state {
+  align-self: center;
+  flex: 1;
+  text-align: center;
+}
+
+
+[hidden] {
+  display: none !important;
+}
+
+.account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.account-bar span {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.auth-gate {
+  display: grid;
+  place-items: center;
+  padding: 28px 0 40px;
+}
+
+.auth-card {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 430px);
+  box-sizing: border-box;
+  padding: 26px;
+  background: white;
+  border: 1px solid #dbe3f0;
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(20, 33, 61, 0.08);
+}
+
+.auth-card h2,
+.auth-card p {
+  margin: 0;
+}
+
+.auth-card label {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.auth-card input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.auth-card button {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.auth-card #authSubmit {
+  color: white;
+  background: #3548a5;
+}
+
+.auth-card button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.auth-card .link-button {
+  background: transparent;
+  color: #3548a5;
+  text-decoration: underline;
+}
+
+.auth-message {
+  min-height: 1.4em;
+  color: #9f1239;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.auth-message.success {
+  color: #166534;
+}
+
+.voice-panel .voice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.voice-panel .quiz-status {
+  overflow-wrap: anywhere;
+}

@@ -17,3 +17,8 @@ dist/
 # Logs
 npm-debug.log*
 yarn-debug.log*
+# Local SQLite data (keep student records out of Git)
+/server/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

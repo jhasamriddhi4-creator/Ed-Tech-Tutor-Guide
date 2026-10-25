@@ -75,3 +75,28 @@ export async function generateStructured(prompt, schema) {
     );
   }
 }
+
+export async function transcribeAudio(audioBase64, mimeType) {
+  const ai = getClient();
+  const interaction = await ai.interactions.create({
+    model: getModel(),
+    input: [
+      {
+        type: "text",
+        text: "Generate an accurate transcript of the speech in this audio. Return only the spoken words with no commentary. If no intelligible speech is present, return an empty response.",
+      },
+      {
+        type: "audio",
+        data: audioBase64,
+        mime_type: mimeType,
+      },
+    ],
+  });
+
+  const text = interaction.output_text?.trim();
+  if (!text) {
+    throw new Error("No speech was detected in the recording.");
+  }
+
+  return text;
+}
