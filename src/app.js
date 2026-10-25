@@ -6,12 +6,10 @@ import {
   planRoadmap,
   ragAnswer,
   submitQuiz,
+  getStudentData,
+  saveLearningItem,
+  deleteLearningItem,
 } from "./services/aiGuru.js";
-
-import {
-  analytics,
-  topics,
-} from "./data/sampleData.js";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -20,7 +18,8 @@ const tabs = {
   code: "💻 Code Review",
   notes: "🧠 Notes",
   roadmap: "🛣️ Planner Agent",
-  voice: "🎙️ Voice Tutor"
+  voice: "🎙️ Voice Tutor",
+  library: "📚 Saved Library"
 };
 
 const prompt = document.querySelector("#prompt");
@@ -30,6 +29,28 @@ const title = document.querySelector("#title");
 const quizOptions = document.querySelector("#quizOptions");
 const quizCount = document.querySelector("#quizCount");
 const quizDifficulty = document.querySelector("#quizDifficulty");
+
+function getStudentId() {
+  const storageKey = "aiGuruStudentId";
+
+  try {
+    let id = localStorage.getItem(storageKey);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(storageKey, id);
+    }
+    return id;
+  } catch {
+    // This fallback keeps the app usable when browser storage is disabled.
+    // It will not persist identity across reloads in that case.
+    return `student-${crypto.randomUUID()}`;
+  }
+}
+
+const studentId = getStudentId();
+let studentData = { savedItems: [], quizAttempts: [] };
+let lastGeneratedContent = "";
+let lastGeneratedType = "";
 
 // Call this whenever the active tab changes.
 function updateQuizOptions() {
@@ -58,7 +79,8 @@ async function runQuiz() {
     prompt.value.trim() || "Binary Search",
     {
       numberOfQuestions: count,
-      difficulty
+      difficulty,
+      studentId
     }
   );
 }
@@ -75,22 +97,156 @@ pdf.value =
 
 // These cards will be connected to real learning analytics later.
 function renderCards() {
+  const attempts = studentData.quizAttempts || [];
+  const savedItems = studentData.savedItems || [];
+  const averageAccuracy = attempts.length
+    ? Math.round(attempts.reduce((sum, item) => sum + item.accuracy, 0) / attempts.length)
+    : 0;
+  const practicedTopics = new Set(attempts.map((item) => item.topic)).size;
+
   const cards = [
-    ["Learning streak (demo)", "12 days"],
-    ["Progress (demo)", "74%"],
-    ["Completed topics (demo)", "18"],
-    ["Weak topics (demo)", "DBMS indexing, OS scheduling"],
+    ["Quizzes completed", String(attempts.length)],
+    ["Average quiz accuracy", `${averageAccuracy}%`],
+    ["Saved learning resources", String(savedItems.length)],
+    ["Topics practiced", String(practicedTopics)],
   ];
 
-  document.querySelector("#cards").innerHTML =
-    cards
-      .map(
-        ([key, value]) =>
-          `<article><span>${key}</span><strong>${value}</strong></article>`
-      )
-      .join("");
+  document.querySelector("#cards").innerHTML = cards
+    .map(
+      ([key, value]) =>
+        `<article><span>${key}</span><strong>${value}</strong></article>`
+    )
+    .join("");
 }
 
+function renderDashboardCharts() {
+  const attempts = [...(studentData.quizAttempts || [])]
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .slice(-7)
+    .map((item) => ({
+      week: new Date(item.createdAt).toLocaleDateString(),
+      accuracy: item.accuracy,
+    }));
+
+  const topicScores = new Map();
+  for (const attempt of studentData.quizAttempts || []) {
+    const current = topicScores.get(attempt.topic) || { total: 0, count: 0 };
+    current.total += attempt.accuracy;
+    current.count += 1;
+    topicScores.set(attempt.topic, current);
+  }
+
+  const topics = [...topicScores.entries()].map(([name, values]) => ({
+    name,
+    score: Math.round(values.total / values.count),
+  }));
+
+  chart("#lineChart", attempts, "accuracy");
+  chart("#barChart", topics, "score");
+
+  if (!attempts.length) {
+    document.querySelector("#lineChart").innerHTML =
+      '<p class="empty-state">Complete a quiz to see your progress here.</p>';
+  }
+
+  if (!topics.length) {
+    document.querySelector("#barChart").innerHTML =
+      '<p class="empty-state">Topic mastery will appear after your first quiz.</p>';
+  }
+}
+
+async function loadStudentData() {
+  try {
+    studentData = await getStudentData(studentId);
+    renderCards();
+    renderDashboardCharts();
+  } catch (error) {
+    console.warn("Student progress could not be loaded:", error);
+  }
+}
+
+async function saveCurrentResult() {
+  if (!lastGeneratedContent || !lastGeneratedType) return;
+
+  const saveButton = document.querySelector("#saveCurrentResult");
+  const status = document.querySelector("#saveCurrentStatus");
+  if (saveButton) saveButton.disabled = true;
+  if (status) status.textContent = "Saving...";
+
+  try {
+    await saveLearningItem(studentId, {
+      title: (prompt.value.trim() || `${lastGeneratedType} result`).slice(0, 160),
+      type: lastGeneratedType,
+      content: lastGeneratedContent,
+    });
+    await loadStudentData();
+    if (status) status.textContent = "Saved to your library.";
+  } catch (error) {
+    if (status) status.textContent = error instanceof Error ? error.message : "Unable to save this result.";
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+function addSaveResultControl(result) {
+  const allowedTypes = ["tutor", "rag", "code", "notes", "roadmap"];
+  if (!allowedTypes.includes(active)) return;
+
+  lastGeneratedType = active;
+  lastGeneratedContent = typeof result === "string"
+    ? result
+    : JSON.stringify(result, null, 2);
+
+  const controls = element("div", "save-controls");
+  const button = element("button", "quiz-submit", "☆ Save to My Library");
+  button.id = "saveCurrentResult";
+  const status = element("p", "quiz-status", "");
+  status.id = "saveCurrentStatus";
+  button.addEventListener("click", saveCurrentResult);
+  controls.append(button, status);
+  output.append(controls);
+}
+
+function renderSavedLibrary() {
+  output.replaceChildren();
+  const wrapper = element("div", "library-panel");
+  wrapper.append(element("h3", "quiz-heading", "📚 My Saved Library"));
+
+  const items = studentData.savedItems || [];
+  if (!items.length) {
+    wrapper.append(element("p", "empty-state", "You haven't saved anything yet. Generate a tutor answer, notes, code review, roadmap, or document-grounded answer, then choose Save to My Library."));
+    output.append(wrapper);
+    return;
+  }
+
+  items.forEach((item) => {
+    const card = element("article", "saved-item");
+    card.append(
+      element("h3", "saved-item-title", item.title),
+      element("p", "quiz-subtitle", `${item.type.toUpperCase()} · ${new Date(item.createdAt).toLocaleString()}`)
+    );
+
+    const content = element("div", "ai-response");
+    content.innerHTML = renderMarkdown(item.content);
+
+    const remove = element("button", "quiz-submit voice-secondary", "Delete");
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await deleteLearningItem(studentId, item.id);
+        await loadStudentData();
+        renderSavedLibrary();
+      } catch (error) {
+        remove.disabled = false;
+        window.alert(error instanceof Error ? error.message : "Unable to delete saved item.");
+      }
+    });
+
+    card.append(content, remove);
+    wrapper.append(card);
+  });
+
+  output.append(wrapper);
+}
 function renderTabs() {
   const tabsContainer = document.querySelector("#tabs");
 
@@ -104,12 +260,20 @@ function renderTabs() {
   tabsContainer.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       active = button.dataset.tab;
+      tabsContainer.querySelectorAll("[data-tab]").forEach((tabButton) => {
+        tabButton.classList.toggle("active", tabButton === button);
+      });
       title.textContent = tabs[active];
       pdf.hidden = active !== "rag";
       updateQuizOptions();
 
       if (active === "voice") {
         renderVoiceUI();
+        return;
+      }
+
+      if (active === "library") {
+        renderSavedLibrary();
         return;
       }
 
@@ -632,9 +796,11 @@ function renderQuizUI(quiz) {
     try {
       const result = await submitQuiz(
         quiz.quizId,
-        answers
+        answers,
+        studentId
       );
 
+      await loadStudentData();
       renderQuizResults(result);
     } catch (error) {
       status.textContent =
@@ -711,14 +877,19 @@ function chart(selector, data, key) {
     data
       .map(
         (item) =>
-          `<div><span>${item.name || item.week}</span>` +
-          `<b style="height:${item[key] * 2}px"></b>` +
-          `<em>${item[key]}</em></div>`
+          `<div><span>${escapeHTML(item.name || item.week)}</span>` +
+          `<b style="height:${Number(item[key]) * 2}px"></b>` +
+          `<em>${Number(item[key])}</em></div>`
       )
       .join("");
 }
 
 async function run() {
+  if (active === "library") {
+    renderSavedLibrary();
+    return;
+  }
+
   if (active === "voice") {
   const spokenQuestion = prompt.value.trim();
 
@@ -769,10 +940,11 @@ async function run() {
     }
 
     output.innerHTML = renderMarkdown(
-  typeof result === "string"
-    ? result
-    : JSON.stringify(result, null, 2)
-);
+      typeof result === "string"
+        ? result
+        : JSON.stringify(result, null, 2)
+    );
+    addSaveResultControl(result);
   } catch (error) {
     console.error("AI Guru request failed:", error);
 
@@ -788,10 +960,10 @@ async function run() {
 
 renderCards();
 renderTabs();
-chart("#lineChart", analytics, "accuracy");
-chart("#barChart", topics, "score");
+renderDashboardCharts();
 
 output.textContent =
   "Select an AI feature, enter your input, and click Run AI Guru.";
 
 document.querySelector("#run").addEventListener("click", run);
+loadStudentData();
