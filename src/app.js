@@ -14,7 +14,7 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js";
+} from "./services/aiGuru.js?v=guardrails-all-tabs-20261025-2";
 import { guardPrompt } from "./prompts/guardrails.js";
 
 const tabs = {
