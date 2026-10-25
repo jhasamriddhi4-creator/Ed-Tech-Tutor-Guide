@@ -15,8 +15,8 @@ import {
   logoutAccount,
   transcribeVoice,
   uploadPdfForRag,
-} from "./services/aiGuru.js?v=pdf-rag-ocr-20261027-1";
-import { guardPrompt } from "./prompts/guardrails.js?v=pdf-rag-ocr-20261027-1";
+} from "./services/aiGuru.js?v=rag-source-choice-20261027-1";
+import { guardPrompt } from "./prompts/guardrails.js?v=rag-source-choice-20261027-1";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -31,6 +31,10 @@ const tabs = {
 
 const prompt = document.querySelector("#prompt");
 const pdf = document.querySelector("#pdf");
+const pdfExtractedText = document.querySelector("#pdfExtractedText");
+const ragSourceModeInputs = document.querySelectorAll('input[name="ragSourceMode"]');
+const ragPdfPanel = document.querySelector("#ragPdfPanel");
+const ragPastePanel = document.querySelector("#ragPastePanel");
 const pdfFile = document.querySelector("#pdfFile");
 const uploadPdfButton = document.querySelector("#uploadPdfButton");
 const pdfStatus = document.querySelector("#pdfStatus");
@@ -83,6 +87,24 @@ async function runQuiz() {
 }
 
 let active = "tutor";
+let ragSourceMode = "pdf";
+
+function setRagSourceMode(mode) {
+  ragSourceMode = mode === "paste" ? "paste" : "pdf";
+  if (ragPdfPanel) ragPdfPanel.hidden = ragSourceMode !== "pdf";
+  if (ragPastePanel) ragPastePanel.hidden = ragSourceMode !== "paste";
+  ragSourceModeInputs.forEach((input) => {
+    input.checked = input.value === ragSourceMode;
+  });
+}
+
+ragSourceModeInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    if (input.checked) setRagSourceMode(input.value);
+  });
+});
+setRagSourceMode(ragSourceMode);
+
 
 prompt.value = "";
 prompt.placeholder = "Ask a Computer Science question...";
@@ -1004,9 +1026,13 @@ async function run() {
 
     rag: () => {
       const question = prompt.value.trim();
-      const sourceText = pdf.value.trim();
+      const sourceText = (ragSourceMode === "paste" ? pdf.value : pdfExtractedText.value).trim();
       if (!question) throw new Error("Please enter a question about the supplied study material.");
-      if (!sourceText) throw new Error("Upload a readable PDF or paste study text before asking a question.");
+      if (!sourceText) {
+        throw new Error(ragSourceMode === "paste"
+          ? "Paste your study text before asking a question."
+          : "Upload and extract a readable PDF before asking a question.");
+      }
       return ragAnswer(question, sourceText);
     },
 
@@ -1195,7 +1221,8 @@ uploadPdfButton.addEventListener("click", async () => {
   pdfStatus.textContent = "Extracting text from PDF (scanned pages may use Gemini OCR)...";
   try {
     const result = await uploadPdfForRag(file);
-    pdf.value = result.text;
+    pdfExtractedText.value = result.text;
+    setRagSourceMode("pdf");
     const extractionLabel = result.extractionMethod === "gemini-ocr"
       ? "Scanned PDF OCR"
       : "PDF text extraction";
@@ -1206,7 +1233,7 @@ uploadPdfButton.addEventListener("click", async () => {
     renderTabs();
     title.textContent = tabs.rag;
     ragControls.hidden = false;
-    pdf.focus();
+    pdfExtractedText.focus();
   } catch (error) {
     pdfStatus.textContent = error instanceof Error ? error.message : "PDF extraction failed.";
   } finally {
