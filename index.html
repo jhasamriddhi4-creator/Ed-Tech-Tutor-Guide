@@ -44,7 +44,7 @@
                 <div class="workspace">
                     <h2 id="title">AI Tutor</h2>
                     <section id="ragControls" class="rag-controls" hidden>
-                        <label for="pdfFile">Upload a PDF for document Q&A (max 10 MB)</label>
+                        <label for="pdfFile">Upload a PDF for document Q&A (max 10 MB; scanned PDFs use Gemini OCR)</label>
                         <div class="rag-upload-row">
                             <input id="pdfFile" type="file" accept="application/pdf,.pdf"/>
                             <button id="uploadPdfButton" type="button" class="voice-secondary">Extract PDF text</button>
@@ -93,6 +93,6 @@
             </div>
         </main>
         
-        <script type="module" src="src/app.js?v=pdf-rag-weather-20261026-1"></script>
+        <script type="module" src="src/app.js?v=pdf-rag-ocr-20261027-1"></script>
     </body>
 </html>
