@@ -260,6 +260,9 @@ function renderTabs() {
   tabsContainer.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       active = button.dataset.tab;
+      tabsContainer.querySelectorAll("[data-tab]").forEach((tabButton) => {
+        tabButton.classList.toggle("active", tabButton === button);
+      });
       title.textContent = tabs[active];
       pdf.hidden = active !== "rag";
       updateQuizOptions();
