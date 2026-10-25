@@ -15,7 +15,7 @@ import {
   logoutAccount,
   transcribeVoice,
 } from "./services/aiGuru.js?v=guardrails-all-tabs-20261025-2";
-import { guardPrompt } from "./prompts/guardrails.js";
+import { guardPrompt } from "./prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
