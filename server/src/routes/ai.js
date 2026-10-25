@@ -172,7 +172,20 @@ function validateQuiz(quiz, topic, count, difficulty) {
 
 // Upload a PDF for document-grounded Q&A. Files are processed in memory only;
 // they are not written to disk or stored in the student's library automatically.
-router.post("/pdf-text", pdfUpload.single("file"), async (req, res) => {
+router.post("/pdf-text", (req, res, next) => {
+  pdfUpload.single("file")(req, res, (error) => {
+    if (error) {
+      const tooLarge = error.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({
+        success: false,
+        message: tooLarge
+          ? "PDF must be 10 MB or smaller."
+          : error.message || "Choose a valid PDF file.",
+      });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
