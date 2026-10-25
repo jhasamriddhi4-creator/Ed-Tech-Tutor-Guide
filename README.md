@@ -117,7 +117,7 @@ These are deterministic pattern checks plus model instructions, not a guarantee 
 
 ## PDF RAG and live-weather intent handling
 
-- PDF RAG accepts pasted study text, text-based PDFs, and scanned/image-only PDFs uploaded through the student interface.
+- PDF RAG offers two explicit source options: upload and extract a PDF (including scanned/image-only PDFs via Gemini OCR), or paste study text directly. Only the selected source is used for document-grounded answers.
 - The authenticated PDF extraction endpoint accepts one PDF up to 10 MB, processes it in memory, and returns extracted text for document-grounded questions. Text-based PDFs use `pdf-parse`; if little text is found, Gemini document OCR attempts to transcribe scanned pages. Extracted text and files are not saved automatically.
 - The RAG answer uses only the supplied text, treats document content as untrusted, and returns a clear message if the question or source text is missing.
 - PDFs are limited to the first 120,000 extracted characters for context. OCR relies on the configured Gemini model, API quota, and document-input support; output may be incomplete for long or low-quality scans. Clear scans work best.
@@ -127,7 +127,6 @@ These are deterministic pattern checks plus model instructions, not a guarantee 
 ## Current limitations / next steps
 
 - Add email verification, password reset, and authentication rate limiting before public deployment.
-- Add chunking, embeddings, and semantic retrieval for large documents.
 - Add chunking, embeddings, and semantic retrieval for large documents.
 - Add automated integration tests and production deployment configuration.
 - Improve prompt-injection protections and API rate limiting.
