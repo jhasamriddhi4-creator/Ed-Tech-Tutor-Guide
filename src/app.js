@@ -15,8 +15,8 @@ import {
   logoutAccount,
   transcribeVoice,
   uploadPdfForRag,
-} from "./services/aiGuru.js?v=pdf-rag-weather-20261026-1";
-import { guardPrompt } from "./prompts/guardrails.js?v=pdf-rag-weather-20261026-1";
+} from "./services/aiGuru.js?v=pdf-rag-ocr-20261027-1";
+import { guardPrompt } from "./prompts/guardrails.js?v=pdf-rag-ocr-20261027-1";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -1192,13 +1192,16 @@ uploadPdfButton.addEventListener("click", async () => {
   }
 
   uploadPdfButton.disabled = true;
-  pdfStatus.textContent = "Extracting text from PDF...";
+  pdfStatus.textContent = "Extracting text from PDF (scanned pages may use Gemini OCR)...";
   try {
     const result = await uploadPdfForRag(file);
     pdf.value = result.text;
+    const extractionLabel = result.extractionMethod === "gemini-ocr"
+      ? "Scanned PDF OCR"
+      : "PDF text extraction";
     pdfStatus.textContent = result.truncated
-      ? `Extracted text from ${result.fileName}; only the first ${result.characters.toLocaleString()} characters were loaded. This PDF was too long to include in full.`
-      : `Extracted ${result.characters.toLocaleString()} characters from ${result.fileName}. You can edit the text below before asking a question.`;
+      ? `${extractionLabel} processed ${result.fileName}; only the first ${result.characters.toLocaleString()} characters were loaded. The extracted text may be incomplete.`
+      : `${extractionLabel} extracted ${result.characters.toLocaleString()} characters from ${result.fileName}. You can edit the text below before asking a question.`;
     active = "rag";
     renderTabs();
     title.textContent = tabs.rag;
