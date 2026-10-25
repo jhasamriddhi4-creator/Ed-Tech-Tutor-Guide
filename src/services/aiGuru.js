@@ -7,6 +7,7 @@ async function requestJSON(path, options = {}) {
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(options.headers || {}),
@@ -19,7 +20,6 @@ async function requestJSON(path, options = {}) {
   }
 
   let data;
-
   try {
     data = await response.json();
   } catch {
@@ -44,6 +44,22 @@ function getStudentPath(studentId) {
   return `/api/students/${encodeURIComponent(studentId)}`;
 }
 
+export function registerAccount(email, password) {
+  return postJSON("/api/auth/register", { email, password });
+}
+
+export function loginAccount(email, password) {
+  return postJSON("/api/auth/login", { email, password });
+}
+
+export function getCurrentAccount() {
+  return requestJSON("/api/auth/me");
+}
+
+export function logoutAccount() {
+  return postJSON("/api/auth/logout", {});
+}
+
 export function askTutor(question) {
   return postJSON("/api/ai/tutor", { question });
 }
@@ -57,14 +73,13 @@ export function generateQuiz(topic, options = {}) {
     topic,
     numberOfQuestions: options.numberOfQuestions ?? 5,
     difficulty: options.difficulty ?? "medium",
-    studentId: options.studentId,
   });
 }
 
-export function submitQuiz(quizId, answers, studentId) {
+export function submitQuiz(quizId, answers) {
   return postJSON(
     `/api/ai/quiz/${encodeURIComponent(quizId)}/submit`,
-    { answers, studentId }
+    { answers }
   );
 }
 
@@ -81,7 +96,7 @@ export function planRoadmap(goal) {
 }
 
 export function getStudentData(studentId) {
-  return requestJSON(getStudentPath(studentId), { method: "GET" });
+  return requestJSON(getStudentPath(studentId));
 }
 
 export function saveLearningItem(studentId, item) {
@@ -93,4 +108,8 @@ export function deleteLearningItem(studentId, itemId) {
     `${getStudentPath(studentId)}/saves/${encodeURIComponent(itemId)}`,
     { method: "DELETE" }
   );
+}
+
+export function transcribeVoice(audioBase64, mimeType) {
+  return postJSON("/api/ai/transcribe", { audioBase64, mimeType });
 }
