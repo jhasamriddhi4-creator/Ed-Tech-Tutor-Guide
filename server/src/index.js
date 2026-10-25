@@ -31,7 +31,7 @@ app.get("/api/health", (_req, res) => {
     provider: "Gemini",
     guardrails: {
       enabled: true,
-      version: "2026-10-25.4",
+      version: "2026-10-26.1",
     },
     apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
   });
