@@ -1222,6 +1222,7 @@ uploadPdfButton.addEventListener("click", async () => {
   try {
     const result = await uploadPdfForRag(file);
     pdfExtractedText.value = result.text;
+    setRagSourceMode("pdf");
     const extractionLabel = result.extractionMethod === "gemini-ocr"
       ? "Scanned PDF OCR"
       : "PDF text extraction";
