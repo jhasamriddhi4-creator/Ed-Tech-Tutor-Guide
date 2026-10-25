@@ -33,29 +33,34 @@ const quizDifficulty = document.querySelector("#quizDifficulty");
 
 // Call this whenever the active tab changes.
 function updateQuizOptions() {
-  quizOptions.hidden = active !== "quiz";
+  if (quizOptions) {
+    quizOptions.hidden = active !== "quiz";
+  }
 }
 
 async function runQuiz() {
+  const parsedCount = Number.parseInt(quizCount?.value ?? "5", 10);
   const count = Math.min(
     10,
-    Math.max(1, Number.parseInt(quizCount.value, 10) || 5)
+    Math.max(1, Number.isFinite(parsedCount) ? parsedCount : 5)
   );
 
-  const difficulty = quizDifficulty.value;
+  const selectedDifficulty = quizDifficulty?.value || "medium";
+  const difficulty = ["easy", "medium", "hard"].includes(selectedDifficulty)
+    ? selectedDifficulty
+    : "medium";
 
-  quizCount.value = String(count);
+  if (quizCount) {
+    quizCount.value = String(count);
+  }
 
-  const quiz = await generateQuiz(
+  return generateQuiz(
     prompt.value.trim() || "Binary Search",
     {
       numberOfQuestions: count,
       difficulty
     }
   );
-
-  // Use your existing quiz renderer here.
-  renderQuizUI(quiz);
 }
 const DEFAULT_TUTOR_PROMPT =
   "Explain Binary Search at beginner, intermediate and advanced levels.";
@@ -87,56 +92,34 @@ function renderCards() {
 }
 
 function renderTabs() {
-  document.querySelector("#tabs").innerHTML =
-    Object.entries(tabs)
-      .map(
-        ([key, label]) =>
-          `<button data-tab="${key}" class="${
-            active === key ? "active" : ""
-          }">${label}</button>`
-      )
-      .join("");
+  const tabsContainer = document.querySelector("#tabs");
 
-  document.querySelectorAll("[data-tab]").forEach((button) => {
+  tabsContainer.innerHTML = Object.entries(tabs)
+    .map(
+      ([key, label]) =>
+        `<button data-tab="${key}" class="${active === key ? "active" : ""}">${label}</button>`
+    )
+    .join("");
+
+  tabsContainer.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       active = button.dataset.tab;
       title.textContent = tabs[active];
       pdf.hidden = active !== "rag";
-      
-      if (quizOptions) {
-         quizOptions.hidden = active !== "quiz";
+      updateQuizOptions();
+
+      if (active === "voice") {
+        renderVoiceUI();
+        return;
       }
-      quiz: () => {
-  const requestedCount = Number(quizCount?.value || 5);
 
-  const numberOfQuestions = Math.min(
-    10,
-    Math.max(
-      1,
-      Number.isFinite(requestedCount)
-        ? Math.floor(requestedCount)
-        : 5
-    )
-  );
-
-  return generateQuiz(
-    prompt.value.trim() || "Binary Search",
-    {
-      numberOfQuestions,
-      difficulty: quizDifficulty?.value || "medium",
-    }
-  );
-};
-
-if (active === "voice") {
-  renderVoiceUI();
-} else {
-  output.textContent =
-    `Selected ${tabs[active]}. Enter your input and click Run AI Guru.`;
-}});
+      output.textContent =
+        `Selected ${tabs[active]}. Enter your input and click Run AI Guru.`;
+    });
   });
-}
 
+  updateQuizOptions();
+}
 function element(tag, className, text) {
   const node = document.createElement(tag);
 
@@ -756,13 +739,7 @@ async function run() {
 
     rag: () => ragAnswer(prompt.value, pdf.value),
 
-    quiz: () => generateQuiz(
-      prompt.value.trim() || "Binary Search",
-      {
-        numberOfQuestions: 5,
-        difficulty: "medium",
-      }
-    ),
+    quiz: () => runQuiz(),
 
     code: () =>
       evaluateCode(
@@ -781,9 +758,6 @@ async function run() {
           "Prepare for a software engineering internship in six months"
       ),
 
-
-    admin: () =>
-      "Admin analytics are not live yet. This page still uses demonstration data.",
   };
 
   try {
