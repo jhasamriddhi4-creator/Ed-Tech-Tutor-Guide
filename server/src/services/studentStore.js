@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,7 +102,7 @@ export function saveLearningItem(studentId, item) {
   ensureStudent(studentId);
 
   const saved = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     studentId,
     title: item.title,
     type: item.type,
@@ -134,7 +135,7 @@ export function recordQuizAttempt(studentId, attempt) {
   requireStudentId(studentId);
   ensureStudent(studentId);
 
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   const createdAt = new Date().toISOString();
   const accuracy = Math.round((attempt.score / attempt.total) * 100);
 
