@@ -94,6 +94,10 @@ export function findStudentAccountByEmail(email) {
   return db.prepare("SELECT id, email, password_hash AS passwordHash, created_at AS createdAt FROM users WHERE email = ? COLLATE NOCASE").get(email);
 }
 
+export function findStudentAccountById(id) {
+  return db.prepare("SELECT id, email, created_at AS createdAt FROM users WHERE id = ?").get(id);
+}
+
 export function getStudentData(studentId) {
   requireStudentId(studentId);
   ensureStudent(studentId);
