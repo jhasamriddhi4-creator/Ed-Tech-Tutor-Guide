@@ -8,6 +8,7 @@ import { recordQuizAttempt } from "../services/studentStore.js";
 import { requireAuth } from "./auth.js";
 import { transcribeAudio } from "../services/geminiProvider.js";
 import { evaluateInputGuardrails } from "../services/guardrails.js";
+import { routeStudentRequest } from "../services/intentRouter.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -286,6 +287,17 @@ router.post("/:task", async (req, res) => {
   try {
     const { task } = req.params;
     const body = req.body || {};
+
+    const intent = routeStudentRequest(task, body);
+    if (intent.action === "reply") {
+      return res.json({ success: true, result: intent.result });
+    }
+    if (intent.action === "reject") {
+      return res.status(intent.status || 400).json({
+        success: false,
+        message: intent.message,
+      });
+    }
 
     const question = String(body.question || "").trim();
     const topic = String(body.topic || question || "").trim();
