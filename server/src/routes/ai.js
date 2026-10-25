@@ -1,0 +1,436 @@
+import { Router } from "express";
+import { randomUUID } from "node:crypto";
+import {
+  generateText,
+  generateStructured,
+} from "../services/geminiProvider.js";
+
+const router = Router();
+const quizSessions = new Map();
+
+const NOT_FOUND =
+  "I could not find this information in the supplied material.";
+
+function guardPrompt(input) {
+  const normalized = String(input || "").toLowerCase();
+
+  const blocked = [
+    "ignore previous instructions",
+    "bypass safety",
+    "give direct assignment answer",
+  ];
+
+  if (blocked.some((term) => normalized.includes(term))) {
+    return {
+      allowed: false,
+      message:
+        "Safety Guardrail: I can guide your learning step by step, but I cannot bypass instructions or provide direct graded-work answers.",
+    };
+  }
+
+  return { allowed: true };
+}
+
+const quizSchema = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    topic: { type: "string" },
+    difficulty: {
+      type: "string",
+      enum: ["easy", "medium", "hard"],
+    },
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          question: { type: "string" },
+          options: {
+            type: "array",
+            items: { type: "string" },
+          },
+          correctAnswer: { type: "integer" },
+          explanation: { type: "string" },
+        },
+        required: [
+          "id",
+          "question",
+          "options",
+          "correctAnswer",
+          "explanation",
+        ],
+      },
+    },
+  },
+  required: [
+    "title",
+    "topic",
+    "difficulty",
+    "questions",
+  ],
+};
+
+function makeQuizPrompt(topic, count, difficulty) {
+  return `
+You are the Quiz Generator Agent for AI Guru.
+
+Generate a high-quality multiple-choice quiz about:
+${topic}
+
+Requirements:
+- Generate exactly ${count} questions.
+- Difficulty: ${difficulty}.
+- Each question must have four distinct, plausible options.
+- There must be exactly one correct option.
+- correctAnswer is the zero-based index: 0, 1, 2 or 3.
+- Include a short, accurate explanation.
+- Do not repeat questions.
+- Do not provide ambiguous questions.
+- Do not use "all of the above" or "none of the above".
+- Use accurate, independently defensible educational facts.
+- Return data matching the required JSON schema.
+`;
+}
+
+function validateQuiz(quiz, topic, count, difficulty) {
+  if (!quiz || !Array.isArray(quiz.questions)) {
+    throw new Error("Quiz generation returned invalid questions.");
+  }
+
+  const questions = quiz.questions;
+
+  if (questions.length !== count) {
+    throw new Error(
+      `Expected ${count} questions, but received ${questions.length}. Please try again.`
+    );
+  }
+
+  const normalized = questions.map((question, index) => {
+    if (
+      !Array.isArray(question.options) ||
+      question.options.length !== 4 ||
+      new Set(question.options).size !== 4 ||
+      !Number.isInteger(question.correctAnswer) ||
+      question.correctAnswer < 0 ||
+      question.correctAnswer > 3 ||
+      !question.question?.trim() ||
+      !question.explanation?.trim()
+    ) {
+      throw new Error(
+        `Generated question ${index + 1} failed validation. Please generate the quiz again.`
+      );
+    }
+
+    return {
+      id: `q${index + 1}`,
+      question: question.question,
+      options: question.options,
+      correctAnswer: question.correctAnswer,
+      explanation: question.explanation,
+    };
+  });
+
+  return {
+    title: quiz.title || `${topic} Quiz`,
+    topic,
+    difficulty,
+    questions: normalized,
+  };
+}
+
+// Submit a completed quiz.
+// Correct answers are not sent to the browser before submission.
+router.post("/quiz/:quizId/submit", (req, res) => {
+  const session = quizSessions.get(req.params.quizId);
+
+  if (!session) {
+    return res.status(404).json({
+      success: false,
+      message: "Quiz not found or session expired. Generate a new quiz.",
+    });
+  }
+
+  const answers = req.body?.answers;
+
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    return res.status(400).json({
+      success: false,
+      message: "Answers must be an object keyed by question ID.",
+    });
+  }
+
+  let score = 0;
+
+  const results = session.questions.map((question) => {
+    const selectedIndex = answers[question.id];
+
+    const isCorrect =
+      Number.isInteger(selectedIndex) &&
+      selectedIndex === question.correctAnswer;
+
+    if (isCorrect) score++;
+
+    return {
+      questionId: question.id,
+      question: question.question,
+      isCorrect,
+      selectedOption:
+        Number.isInteger(selectedIndex) &&
+        selectedIndex >= 0 &&
+        selectedIndex < 4
+          ? question.options[selectedIndex]
+          : null,
+      correctOption: question.options[question.correctAnswer],
+      explanation: question.explanation,
+    };
+  });
+
+  return res.json({
+    success: true,
+    result: {
+      score,
+      total: session.questions.length,
+      accuracy: Math.round(
+        (score / session.questions.length) * 100
+      ),
+      results,
+    },
+  });
+});
+
+router.post("/:task", async (req, res) => {
+  try {
+    const { task } = req.params;
+    const body = req.body || {};
+
+    const question = String(body.question || "").trim();
+    const topic = String(body.topic || question || "").trim();
+    const sourceText = String(body.sourceText || "").trim();
+    const code = String(body.code || "").trim();
+    const goal = String(body.goal || question || "").trim();
+
+    const guard = guardPrompt(
+      [question, topic, code, goal].join("\n")
+    );
+
+    if (!guard.allowed) {
+      return res.status(400).json({
+        success: false,
+        message: guard.message,
+      });
+    }
+
+    if (task === "quiz") {
+      if (!topic) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a topic for the quiz.",
+        });
+      }
+
+      const count = Number(body.numberOfQuestions ?? 5);
+      const difficulty = body.difficulty ?? "medium";
+
+      if (!Number.isInteger(count) || count < 1 || count > 10) {
+        return res.status(400).json({
+          success: false,
+          message: "Question count must be between 1 and 10.",
+        });
+      }
+
+      if (!["easy", "medium", "hard"].includes(difficulty)) {
+        return res.status(400).json({
+          success: false,
+          message: "Difficulty must be easy, medium, or hard.",
+        });
+      }
+
+      const generated = await generateStructured(
+        makeQuizPrompt(topic, count, difficulty),
+        quizSchema
+      );
+
+      const quiz = validateQuiz(
+        generated,
+        topic,
+        count,
+        difficulty
+      );
+
+      const quizId = randomUUID();
+
+      // Keep the answer key on the backend until submission.
+      if (quizSessions.size >= 100) {
+        const oldestId = quizSessions.keys().next().value;
+        if (oldestId) quizSessions.delete(oldestId);
+      }
+
+      quizSessions.set(quizId, quiz);
+
+      return res.json({
+        success: true,
+        result: {
+          quizId,
+          title: quiz.title,
+          topic: quiz.topic,
+          difficulty: quiz.difficulty,
+          questions: quiz.questions.map(
+            ({ id, question, options }) => ({
+              id,
+              question,
+              options,
+            })
+          ),
+        },
+      });
+    }
+
+    let prompt;
+
+    switch (task) {
+      case "tutor":
+        if (!question) {
+          return res.status(400).json({
+            success: false,
+            message: "Enter a question for the AI Tutor.",
+          });
+        }
+
+        prompt = `
+You are AI Guru, a Computer Science tutor.
+
+Explain this question in concise, well-organized Markdown.
+
+Use these headings:
+## Core Idea
+## How It Works
+## Example
+## Common Mistakes
+## Practice Question
+
+Rules:
+- Keep the total response around 400–600 words.
+- Use short paragraphs and numbered steps.
+- Use code blocks for code examples.
+- Use tables only when they improve a comparison.
+- Do not repeat the same explanation at multiple levels.
+- Make the explanation appropriate for a student learning the topic.
+
+STUDENT QUESTION:
+${question}
+`;
+        break;
+
+      case "rag":
+        if (!question || !sourceText) {
+          return res.json({
+            success: true,
+            result: NOT_FOUND,
+          });
+        }
+
+        prompt = `
+You are AI Guru, a document-grounded tutor.
+
+Answer using ONLY the supplied material.
+Do not use outside knowledge or invent facts.
+If the material does not support an answer, respond exactly:
+"${NOT_FOUND}"
+
+SUPPLIED MATERIAL:
+${sourceText}
+
+STUDENT QUESTION:
+${question}
+`;
+        break;
+
+      case "code":
+        if (!code) {
+          return res.status(400).json({
+            success: false,
+            message: "Provide code to review.",
+          });
+        }
+
+        prompt = `
+You are AI Guru, an educational code reviewer.
+Review the following code for likely correctness issues, edge cases,
+complexity and readability. Explain your reasoning.
+Do not claim code was executed unless it actually was.
+Focus on helping the student learn.
+
+CODE:
+${code}
+`;
+        break;
+
+      case "notes":
+        if (!topic) {
+          return res.status(400).json({
+            success: false,
+            message: "Enter a topic for the notes.",
+          });
+        }
+
+        prompt = `
+Create concise Computer Science study notes on:
+${topic}
+
+Include definitions, key points, an example, common mistakes,
+and five useful revision questions.
+Avoid inventing precise facts or citations.
+`;
+        break;
+
+      case "roadmap":
+        if (!goal) {
+          return res.status(400).json({
+            success: false,
+            message: "Enter a learning goal for the planner.",
+          });
+        }
+
+        prompt = `
+You are AI Guru's study planning assistant.
+Create a realistic, measurable learning roadmap for this goal:
+${goal}
+
+Include weekly milestones, practice activities, revision,
+and ways to measure progress. State assumptions clearly.
+`;
+        break;
+
+      default:
+        return res.status(404).json({
+          success: false,
+          message: `Unknown AI task: ${task}`,
+        });
+    }
+
+    const result = await generateText(prompt);
+
+    return res.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error("AI request failed:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The AI request failed.";
+
+    return res.status(
+      message.includes("GEMINI_API_KEY") ? 503 : 500
+    ).json({
+      success: false,
+      message,
+    });
+  }
+});
+
+export default router;

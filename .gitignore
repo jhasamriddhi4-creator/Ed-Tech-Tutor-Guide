@@ -1,0 +1,19 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+/server/.env
+/server/.env.*
+!/server/.env.example
+
+# Dependencies
+node_modules/
+/server/node_modules/
+
+# Build output
+dist/
+/server/dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*

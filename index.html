@@ -33,7 +33,26 @@
                     <textarea id="pdf" hidden></textarea>
                     <textarea id="prompt"></textarea>
                     <button id="run">Run AI Guru</button>
-                    <pre id="output"></pre>
+                    <section id="output" class="output" aria-live="polite"></section>
+                    
+<section id="quizOptions" class="quiz-options" hidden>
+  <label for="quizCount">Number of questions</label>
+  <input
+    id="quizCount"
+    type="number"
+    min="1"
+    max="10"
+    value="5"
+  />
+
+  <label for="quizDifficulty">Difficulty</label>
+  <select id="quizDifficulty">
+    <option value="easy">Easy</option>
+    <option value="medium" selected>Medium</option>
+    <option value="hard">Hard</option>
+  </select>
+</section>
+
                 </div>
             </section>
             
