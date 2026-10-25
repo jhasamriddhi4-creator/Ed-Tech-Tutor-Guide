@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import {
   createStudentAccount,
   findStudentAccountByEmail,
+  findStudentAccountById,
 } from "../services/studentStore.js";
 
 const router = Router();
@@ -138,11 +139,11 @@ router.post("/login", async (req, res) => {
 });
 
 router.get("/me", requireAuth, (req, res) => {
-  const user = findStudentAccountByEmail(
-    // The account ID is kept in the signed session; look up only the matching account.
-    String(req.user.id)
-  );
-  return res.json({ success: true, result: user ? { id: user.id, email: user.email } : { id: req.user.id } });
+  const user = findStudentAccountById(req.user.id);
+  if (!user) {
+    return res.status(401).json({ success: false, message: "Your account was not found. Please sign in again." });
+  }
+  return res.json({ success: true, result: { id: user.id, email: user.email } });
 });
 
 router.post("/logout", (_req, res) => {
