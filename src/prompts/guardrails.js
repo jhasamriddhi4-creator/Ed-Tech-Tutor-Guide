@@ -2,7 +2,6 @@ const blockedPhrases = [
   "ignore previous instructions",
   "give direct assignment answer",
   "bypass safety",
-  "malware",
 ];
 
 const overridePatterns = [
