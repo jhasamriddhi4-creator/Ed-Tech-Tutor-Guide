@@ -453,6 +453,7 @@ let currentRecorder = null;
 let currentStream = null;
 let recordingTimeout = null;
 let lastTutorAnswer = "";
+let lastVoiceQuestion = "";
 
 function setVoiceStatus(message) {
   const status = document.querySelector("#voiceStatus");
@@ -490,8 +491,19 @@ async function answerVoiceQuestion(question) {
   try {
     const answer = await askTutor(question);
     lastTutorAnswer = answer;
+    lastVoiceQuestion = question;
     const answerBox = document.querySelector("#voiceAnswer");
     if (answerBox) answerBox.innerHTML = renderMarkdown(answer);
+
+    const saveButton = document.querySelector("#saveVoiceAnswer");
+    const saveStatus = document.querySelector("#saveVoiceStatus");
+    if (saveButton) {
+      saveButton.hidden = false;
+      saveButton.disabled = false;
+      saveButton.textContent = "☆ Save to My Library";
+    }
+    if (saveStatus) saveStatus.textContent = "";
+
     setVoiceStatus("Answer ready. Reading it aloud...");
     speakAnswer(answer);
   } catch (error) {
@@ -587,9 +599,53 @@ function renderVoiceUI(answer = "") {
   answerBox.id = "voiceAnswer";
   answerBox.innerHTML = renderMarkdown(answer);
 
+  const saveControls = element("div", "save-controls");
+  const saveButton = element("button", "quiz-submit", "☆ Save to My Library");
+  saveButton.type = "button";
+  saveButton.id = "saveVoiceAnswer";
+  saveButton.hidden = !answer;
+  const saveStatus = element("p", "quiz-status", "");
+  saveStatus.id = "saveVoiceStatus";
+  saveControls.append(saveButton, saveStatus);
+
   controls.append(startButton, stopButton, repeatButton, stopSpeechButton);
-  wrapper.append(controls, status, answerBox);
+  wrapper.append(controls, status, answerBox, saveControls);
   output.append(wrapper);
+
+  saveButton.addEventListener("click", async () => {
+    if (!lastTutorAnswer || !lastVoiceQuestion) {
+      saveStatus.textContent = "Ask a voice question before saving an answer.";
+      return;
+    }
+
+    if (!currentUser || !studentId) {
+      saveStatus.textContent = "Please sign in before saving learning material.";
+      return;
+    }
+
+    saveButton.disabled = true;
+    saveStatus.textContent = "Saving voice question and answer...";
+
+    try {
+      const titleText = `Voice Tutor: ${lastVoiceQuestion.trim() || "Tutor answer"}`.slice(0, 160);
+      const content = `## Voice Tutor Question\n\n${lastVoiceQuestion}\n\n## AI Tutor Answer\n\n${lastTutorAnswer}`;
+
+      await saveLearningItem(studentId, {
+        title: titleText,
+        type: "tutor",
+        content,
+      });
+
+      await loadStudentData();
+      saveButton.textContent = "✓ Saved to My Library";
+      saveStatus.textContent = "Saved. Open the Saved Library tab to view it.";
+    } catch (error) {
+      saveButton.disabled = false;
+      saveStatus.textContent = error instanceof Error
+        ? error.message
+        : "Unable to save the voice answer. Please try again.";
+    }
+  });
 
   startButton.addEventListener("click", async () => {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
