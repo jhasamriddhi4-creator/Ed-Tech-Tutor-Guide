@@ -8,7 +8,7 @@ import {
 } from "../services/geminiProvider.js";
 import { recordQuizAttempt } from "../services/studentStore.js";
 import { requireAuth } from "./auth.js";
-import { transcribeAudio } from "../services/geminiProvider.js";
+import { transcribeAudio, extractPdfTextWithGemini } from "../services/geminiProvider.js";
 import { evaluateInputGuardrails } from "../services/guardrails.js";
 import { routeStudentRequest } from "../services/intentRouter.js";
 
@@ -197,22 +197,42 @@ router.post("/pdf-text", (req, res, next) => {
     }
 
     const parsed = await pdfParse(file.buffer);
-    const text = String(parsed.text || "").replace(/\u0000/g, "").trim();
+    let text = String(parsed.text || "").replace(/\\u0000/g, "").trim();
+    let extractionMethod = "pdf-text";
+
+    // Text-based extraction is fast and cheap. Use Gemini document OCR only when
+    // a scanned/image-only PDF contains too little extractable text.
+    if (text.length < 40) {
+      try {
+        text = await extractPdfTextWithGemini(file.buffer);
+        extractionMethod = "gemini-ocr";
+      } catch (ocrError) {
+        console.error("Scanned PDF OCR failed:", ocrError);
+        return res.status(502).json({
+          success: false,
+          message: "This PDF appears to be scanned, and OCR could not process it. Check your Gemini API key, model access, and quota, then try again.",
+        });
+      }
+    }
+
+    text = String(text || "").replace(/\\u0000/g, "").trim();
     if (text.length < 40) {
       return res.status(422).json({
         success: false,
-        message: "No readable text was found. This may be a scanned/image-only PDF; OCR is not enabled yet. Try a text-based PDF or paste the text instead.",
+        message: "No readable text could be extracted from this PDF. Try a clearer scan or paste the text manually.",
       });
     }
 
     const maxCharacters = 120_000;
+    const limitedText = text.slice(0, maxCharacters);
     return res.json({
       success: true,
       result: {
         fileName: String(file.originalname || "document.pdf").slice(0, 180),
-        text: text.slice(0, maxCharacters),
+        text: limitedText,
         truncated: text.length > maxCharacters,
-        characters: Math.min(text.length, maxCharacters),
+        characters: limitedText.length,
+        extractionMethod,
       },
     });
   } catch (error) {
