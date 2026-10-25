@@ -90,3 +90,32 @@ test("allows a random-style quiz when a real topic is specified", () => {
     "continue"
   );
 });
+
+
+test("short weather questions are treated as live-data requests in study tabs", () => {
+  for (const question of ["How is weather", "How is the weather?", "What's the weather?", "How is the weather today?"]) {
+    assert.equal(isLiveWeatherRequest(question), true, question);
+    assert.equal(routeStudentRequest("notes", { topic: question }).action, "reject", question);
+    assert.equal(routeStudentRequest("quiz", { topic: question }).action, "reject", question);
+    assert.equal(routeStudentRequest("roadmap", { goal: question }).action, "reject", question);
+  }
+});
+
+test("weather education topics are not mistaken for live weather", () => {
+  for (const topic of [
+    "Weather formation",
+    "How weather patterns form",
+    "Weather and climate",
+    "Weather API",
+    "How do I build a weather API client?",
+    "Explain a weather forecasting application",
+  ]) {
+    assert.equal(isLiveWeatherRequest(topic), false, topic);
+    assert.equal(routeStudentRequest("notes", { topic }).action, "continue", topic);
+    assert.equal(routeStudentRequest("quiz", { topic }).action, "continue", topic);
+  }
+});
+
+test("RAG asks for both a question and source material", () => {
+  assert.equal(routeStudentRequest("rag", { question: "Summarize the main idea", sourceText: "" }).action, "continue");
+});
