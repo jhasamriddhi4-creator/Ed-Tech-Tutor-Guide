@@ -16,7 +16,7 @@ import {
   transcribeVoice,
   uploadPdfForRag,
 } from "./services/aiGuru.js?v=pdf-rag-weather-20261026-1";
-import { guardPrompt } from "./prompts/guardrails.js?v=intent-aware-routing-20261025-4";
+import { guardPrompt } from "./prompts/guardrails.js?v=pdf-rag-weather-20261026-1";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
