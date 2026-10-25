@@ -877,9 +877,9 @@ function chart(selector, data, key) {
     data
       .map(
         (item) =>
-          `<div><span>${item.name || item.week}</span>` +
-          `<b style="height:${item[key] * 2}px"></b>` +
-          `<em>${item[key]}</em></div>`
+          `<div><span>${escapeHTML(item.name || item.week)}</span>` +
+          `<b style="height:${Number(item[key]) * 2}px"></b>` +
+          `<em>${Number(item[key])}</em></div>`
       )
       .join("");
 }
