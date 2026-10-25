@@ -96,8 +96,10 @@ export function requireAuth(req, res, next) {
 
 router.post("/register", async (req, res) => {
   try {
+    authSecret();
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const legacyStudentId = typeof req.body?.legacyStudentId === "string" ? req.body.legacyStudentId : null;
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return res.status(400).json({ success: false, message: "Enter a valid email address." });
@@ -107,7 +109,7 @@ router.post("/register", async (req, res) => {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = createStudentAccount(randomUUID(), email, passwordHash);
+    const user = createStudentAccount(randomUUID(), email, passwordHash, legacyStudentId);
     setSessionCookie(res, signSession(user.id));
     return res.status(201).json({ success: true, result: { id: user.id, email: user.email } });
   } catch (error) {
@@ -121,6 +123,7 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
+    authSecret();
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const password = typeof req.body?.password === "string" ? req.body.password : "";
     const user = findStudentAccountByEmail(email);
