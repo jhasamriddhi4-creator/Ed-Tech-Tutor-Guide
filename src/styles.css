@@ -364,3 +364,36 @@
 .voice-panel .quiz-status {
   overflow-wrap: anywhere;
 }
+
+
+.rag-controls {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #dbe3f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.rag-controls label {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.rag-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.rag-upload-row input[type="file"] {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 100%;
+}
+.rag-status {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

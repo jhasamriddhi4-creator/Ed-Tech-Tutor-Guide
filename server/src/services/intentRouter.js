@@ -14,12 +14,23 @@ export function isSimpleGreeting(input) {
 
 export function isLiveWeatherRequest(input) {
   const text = normalize(input);
-  const mentionsWeatherTechnology = /\b(weather api|forecast api|weather app|weather prediction model)\b/.test(text);
-  if (mentionsWeatherTechnology) return false;
 
-  const mentionsWeather = /\b(weather|forecast|temperature|humidity|raining|rain|snowing|snow)\b/.test(text);
-  const asksForCurrent = /\b(today|tonight|tomorrow|now|right now|current|currently|this week|what is the weather|what's the weather|how is the weather|how's the weather|weather in|forecast for|will it rain|is it raining)\b/.test(text);
-  return mentionsWeather && asksForCurrent;
+  // These are educational topics, not requests for today's conditions.
+  const mentionsWeatherTechnology =
+    /\b(weather api|forecast api|weather app|weather prediction model)\b/.test(text);
+  const asksHowToBuildWeatherTechnology =
+    /\b(how to|how do i|how can i|build|create|code|develop|make)\b.{0,45}\b(weather|forecast)\b.{0,25}\b(app|api|model|system|tool|dashboard|service)\b/.test(text);
+  if (mentionsWeatherTechnology || asksHowToBuildWeatherTechnology) return false;
+
+  const mentionsWeather =
+    /\b(weather|forecast|temperature|humidity|raining|rain|snowing|snow)\b/.test(text);
+  const asksAboutCurrentConditions =
+    /\b(how|what|is|will|can)\b.{0,35}\b(weather|forecast|temperature|humidity|rain|snow)\b/.test(text) ||
+    /\b(weather|forecast|temperature|humidity|rain|snow)\b.{0,35}\b(today|tonight|tomorrow|now|right now|current|currently|this week|live)\b/.test(text);
+  const mentionsEducationalWeatherTopic =
+    /\b(weather formation|weather patterns|weather and climate|weather vs climate|weather systems|weather process|how weather forms|meteorology|weather api|forecast api|weather app|weather prediction model)\b/.test(text);
+
+  return mentionsWeather && asksAboutCurrentConditions && !mentionsEducationalWeatherTopic;
 }
 
 export function isLiveDataRequest(input) {

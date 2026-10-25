@@ -43,7 +43,16 @@
                 </nav>
                 <div class="workspace">
                     <h2 id="title">AI Tutor</h2>
-                    <textarea id="pdf" hidden></textarea>
+                    <section id="ragControls" class="rag-controls" hidden>
+                        <label for="pdfFile">Upload a PDF for document Q&A (max 10 MB)</label>
+                        <div class="rag-upload-row">
+                            <input id="pdfFile" type="file" accept="application/pdf,.pdf"/>
+                            <button id="uploadPdfButton" type="button" class="voice-secondary">Extract PDF text</button>
+                        </div>
+                        <p id="pdfStatus" class="rag-status" role="status" aria-live="polite">Or paste your study text below.</p>
+                        <label for="pdf">Study text used as the source (you can edit after extraction)</label>
+                        <textarea id="pdf" placeholder="Paste text from your notes, textbook, or PDF here..."></textarea>
+                    </section>
                     <textarea id="prompt"></textarea>
                     <button id="run">Run AI Guru</button>
                     <section id="output" class="output" aria-live="polite"></section>
@@ -84,6 +93,6 @@
             </div>
         </main>
         
-        <script type="module" src="src/app.js?v=intent-aware-routing-20261025-4"></script>
+        <script type="module" src="src/app.js?v=pdf-rag-weather-20261026-1"></script>
     </body>
 </html>
