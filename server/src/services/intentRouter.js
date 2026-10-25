@@ -2,11 +2,10 @@ const normalize = (value) =>
   String(value ?? "")
     .normalize("NFKC")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/[’‘]/g, "'")
-    .toLowerCase()
     .replace(/[!?.,;:()[\]{}]/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .toLowerCase();
 
 export function isSimpleGreeting(input) {
   const text = normalize(input);
@@ -15,7 +14,7 @@ export function isSimpleGreeting(input) {
 
 export function isLiveWeatherRequest(input) {
   const text = normalize(input);
-  const asksHowTo = /\b(how to|how do i|how can i|build|create|code|develop|make)\\b.{0,60}\b(weather app|weather api|forecast app|forecast api|weather prediction model)\b/.test(text);
+  const asksHowTo = /\b(how to|how do i|how can i|build|create|code|develop|make)\b.{0,60}\b(weather app|weather api|forecast app|forecast api|weather prediction model)\b/.test(text);
   if (asksHowTo) return false;
 
   const mentionsWeather = /\b(weather|forecast|temperature|humidity|raining|rain|snowing|snow)\b/.test(text);
@@ -26,7 +25,6 @@ export function isLiveWeatherRequest(input) {
 export function isLiveDataRequest(input) {
   const text = normalize(input);
   if (isLiveWeatherRequest(text)) return true;
-
   return /\b(latest news|breaking news|live score|live scores|current score|who won today|stock price right now|current stock price|current exchange rate|traffic right now|what time is it|latest election results|current election results)\b/.test(text);
 }
 
@@ -35,14 +33,14 @@ function isVagueTopic(input) {
   return /^(?:|random|random questions?|any topic|anything|whatever|surprise me|general questions?|some questions?|a quiz|quiz|notes|study plan|make me a plan)$/.test(text);
 }
 
-function tabInputMessage(task) {
+function inputMessage(task) {
   switch (task) {
     case "quiz":
-      return "Please enter a specific topic for the quiz, such as binary search, SQL joins, neural networks, or operating systems.";
+      return "Please enter a specific quiz topic, such as binary search, SQL joins, neural networks, or operating systems.";
     case "notes":
-      return "Please enter the subject or topic you want notes about.";
+      return "Please enter a specific subject or topic for your notes.";
     case "roadmap":
-      return "Please enter a specific learning goal so the planner can build a relevant roadmap.";
+      return "Please enter a specific learning goal so the planner can create a useful roadmap.";
     case "code":
       return "Please paste the code you want reviewed.";
     case "rag":
@@ -59,57 +57,47 @@ export function routeStudentRequest(task, body = {}) {
       ? body.code
       : task === "roadmap"
         ? body.goal
-        : body.topic;
+        : body.topic ?? body.question;
 
   if (task === "tutor") {
     if (isSimpleGreeting(input)) {
       return {
         action: "reply",
-        result: "I’m here and ready to help! What would you like to learn today?",
+        result: "I’m doing well, thanks for asking! What would you like to learn today?",
       };
     }
 
     if (isLiveWeatherRequest(input)) {
       return {
         action: "reply",
-        result: "I can’t check live weather because this app isn’t connected to a live-weather service. I can help you understand weather APIs or build a weather app if that’s what you’re studying.",
+        result: "I can’t check today’s live weather because AI Guru isn’t connected to a weather service. I can help you learn how weather APIs work or how to build a weather app.",
       };
     }
 
     if (isLiveDataRequest(input)) {
       return {
         action: "reply",
-        result: "I can’t retrieve live updates in this app. I can explain the underlying topic or help you learn how an API could provide that data.",
+        result: "I can’t retrieve live data in this app. I can explain the topic or show you how an API could provide that information.",
       };
     }
 
     return { action: "continue" };
   }
 
-  // Content-generation tabs must receive a meaningful learning input, not
-  // greetings, casual conversation, or requests for live data this app lacks.
   if (isSimpleGreeting(input)) {
-    return {
-      action: "reject",
-      status: 400,
-      message: tabInputMessage(task),
-    };
+    return { action: "reject", status: 400, message: inputMessage(task) };
   }
 
   if (isLiveDataRequest(input)) {
     return {
       action: "reject",
       status: 400,
-      message: "This tab creates study material; it cannot fetch live data. Enter a specific topic you want to study instead.",
+      message: "This feature creates study material; it doesn’t fetch live data. Enter a specific topic you want to study instead.",
     };
   }
 
   if (["quiz", "notes", "roadmap"].includes(task) && isVagueTopic(input)) {
-    return {
-      action: "reject",
-      status: 400,
-      message: tabInputMessage(task),
-    };
+    return { action: "reject", status: 400, message: inputMessage(task) };
   }
 
   return { action: "continue" };
