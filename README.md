@@ -115,6 +115,15 @@ These are deterministic pattern checks plus model instructions, not a guarantee 
 - Quiz prompts explicitly require every question to remain relevant to the exact supplied topic.
 - The API health endpoint reports guardrail version `2026-10-25.4`.
 
+## PDF RAG and live-weather intent handling
+
+- PDF RAG accepts either pasted study text or a text-based PDF uploaded through the student interface.
+- The authenticated PDF extraction endpoint accepts one PDF up to 10 MB, processes it in memory, and returns extracted text for document-grounded questions. Extracted text is not saved to disk automatically.
+- The RAG answer uses only the supplied text, treats document content as untrusted, and returns a clear message if the question or source text is missing.
+- PDFs are limited to the first 120,000 extracted characters for context. Scanned/image-only PDFs need OCR, which is not currently included.
+- Short questions such as "How is weather?" are treated as live-condition requests and are rejected by study-generation tabs. Educational topics such as weather formation and weather API design remain available.
+- The API health endpoint reports version `2026-10-26.1`.
+
 ## Current limitations / next steps
 
 - Add email verification, password reset, and authentication rate limiting before public deployment.
