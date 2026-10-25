@@ -14,7 +14,8 @@ AI Guru is a student-focused Computer Science learning prototype with Gemini-bac
 - **Code Review:** educational feedback on supplied code; it does not execute code.
 - **Study Roadmap and Notes:** generated on request.
 - **Document-grounded Q&A:** answers from text supplied in the document text area. PDF file extraction and vector search are not implemented yet.
-- **Voice Tutor:** browser speech recognition and text-to-speech where supported.
+- **Voice Tutor:** records a short microphone clip, transcribes it with Gemini audio understanding, answers the question, and reads the answer aloud where browser speech synthesis is supported.
+- **Student accounts:** email/password registration and sign-in, scrypt password hashing, signed HttpOnly session cookie, and server-side ownership checks for AI and saved student data.
 
 ## Technology
 
@@ -22,7 +23,7 @@ AI Guru is a student-focused Computer Science learning prototype with Gemini-bac
 - Backend: Node.js and Express
 - AI provider: Google Gemini via `@google/genai`
 - Persistence: SQLite via `better-sqlite3`
-- Voice: browser Web Speech APIs
+- Voice input: browser MediaRecorder + Gemini audio transcription; voice output: browser SpeechSynthesis
 
 ## Requirements
 
@@ -45,10 +46,11 @@ Create `server/.env` and add your key. Do not commit this file:
 ```env
 GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=your_available_gemini_model
+AUTH_SECRET=replace_with_a_random_secret_at_least_32_characters
 PORT=5000
 ```
 
-Use a model name available to your Gemini API account. Quotas and model access depend on your Google AI project.
+Use a model name available to your Gemini API account. Quotas and model access depend on your Google AI project. Keep AUTH_SECRET private and use a different random value for each deployment. Generate a random secret with Node.js crypto and paste it into server/.env.
 
 Start the backend:
 
@@ -81,12 +83,15 @@ npm run build
 - SQLite data is created at `server/data/ai-guru.sqlite` by default.
 - Set `AI_GURU_DB_PATH` in the backend environment to use a different database path.
 - The database directory and SQLite files are ignored by Git.
-- The prototype creates a browser-local student ID so the same browser can reload its saved items and quiz history.
-- **This ID is not authentication.** The current login panel is still only a UI mockup, and the API does not yet provide secure accounts or ownership verification. Do not treat this as production-ready multi-user storage until authentication and authorization are implemented.
+- Student accounts are stored in SQLite. Passwords are hashed with Node.js scrypt; raw passwords are not stored.
+- Sessions use a signed, HttpOnly cookie with a seven-day expiry. Set AUTH_SECRET before starting the backend.
+- Student data and AI routes require a valid session and use the account ID from that session for ownership checks.
+- During registration, the current browser can migrate its existing guest quiz history and saved items into the new account.
+- Before public production deployment, add rate limiting, email verification, password reset, security monitoring, and a CSRF review; use HTTPS.
 
 ## Current limitations / next steps
 
-- Add real student authentication and server-side authorization.
+- Add email verification, password reset, and authentication rate limiting before public deployment.
 - Add PDF upload and text extraction.
 - Add chunking, embeddings, and semantic retrieval for large documents.
 - Add automated integration tests and production deployment configuration.
@@ -99,6 +104,7 @@ npm run build
 - `src/prompts/guardrails.js` — frontend prompt helper/guardrail logic.
 - `server/src/index.js` — Express app and API routes.
 - `server/src/routes/ai.js` — Gemini-backed AI endpoints and quiz grading.
-- `server/src/routes/student.js` — saved items and student-data endpoints.
+- `server/src/routes/student.js` — authenticated saved items and student-data endpoints.
+- `server/src/routes/auth.js` — registration, sign-in, sign-out, and signed sessions.
 - `server/src/services/studentStore.js` — SQLite schema and persistence operations.
 - `server/data/ai-guru.sqlite` — local database created at runtime (not committed).
