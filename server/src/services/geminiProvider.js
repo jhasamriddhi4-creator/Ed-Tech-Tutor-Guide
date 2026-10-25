@@ -78,29 +78,22 @@ export async function generateStructured(prompt, schema) {
 
 export async function transcribeAudio(audioBase64, mimeType) {
   const ai = getClient();
-  const response = await ai.models.generateContent({
+  const interaction = await ai.interactions.create({
     model: getModel(),
-    contents: [{
-      role: "user",
-      parts: [
-        {
-          inlineData: {
-            mimeType,
-            data: audioBase64,
-          },
-        },
-        {
-          text: "Transcribe the spoken words in this audio accurately. Return only the transcript, with no commentary. If no intelligible speech is present, return an empty response.",
-        },
-      ],
-    }],
-    config: {
-      maxOutputTokens: 300,
-      temperature: 0,
-    },
+    input: [
+      {
+        type: "text",
+        text: "Generate an accurate transcript of the speech in this audio. Return only the spoken words with no commentary. If no intelligible speech is present, return an empty response.",
+      },
+      {
+        type: "audio",
+        data: audioBase64,
+        mime_type: mimeType,
+      },
+    ],
   });
 
-  const text = response.text?.trim();
+  const text = interaction.output_text?.trim();
   if (!text) {
     throw new Error("No speech was detected in the recording.");
   }
