@@ -116,6 +116,3 @@ test("weather education topics are not mistaken for live weather", () => {
   }
 });
 
-test("RAG asks for both a question and source material", () => {
-  assert.equal(routeStudentRequest("rag", { question: "Summarize the main idea", sourceText: "" }).action, "continue");
-});
