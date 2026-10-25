@@ -17,7 +17,8 @@ router.use(requireAuth);
 router.use((req, res, next) => {
   if (req.method !== "POST") return next();
 
-  const path = req.path.replace(/\/+$/, "") || "/";
+  const routePath = req.path.replace(/^\/api\/ai(?=\/|$)/, "");
+  const path = routePath.replace(/\/+$/, "") || "/";
   if (path === "/transcribe" || /^\/quiz\/[^/]+\/submit$/.test(path)) {
     return next();
   }
