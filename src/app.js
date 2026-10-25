@@ -534,7 +534,9 @@ async function answerVoiceQuestion(question) {
     speakAnswer(answer);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to contact AI Guru.";
-    const isGuardrailBlock = message.toLowerCase().includes("safety guardrail");
+    const isGuardrailBlock =
+      message === "I can’t help with that request." ||
+      message.toLowerCase().includes("safety guardrail");
 
     if (isGuardrailBlock) {
       lastTutorAnswer = "";
@@ -1027,7 +1029,10 @@ async function run() {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("AI Guru request failed:", error);
 
-    if (message.toLowerCase().includes("safety guardrail")) {
+    if (
+      message === "I can’t help with that request." ||
+      message.toLowerCase().includes("safety guardrail")
+    ) {
       output.innerHTML = renderMarkdown(message);
       return;
     }
