@@ -82,12 +82,27 @@ function ensureStudent(studentId) {
   ).run(studentId, now);
 }
 
-export function createStudentAccount(id, email, passwordHash) {
-  const createdAt = new Date().toISOString();
-  db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
-    .run(id, email, passwordHash, createdAt);
-  ensureStudent(id);
-  return { id, email, createdAt };
+export function createStudentAccount(id, email, passwordHash, legacyStudentId = null) {
+  const create = db.transaction(() => {
+    const createdAt = new Date().toISOString();
+    db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
+      .run(id, email, passwordHash, createdAt);
+    ensureStudent(id);
+
+    // Carry this browser's old guest-mode history into the first registered account.
+    if (isValidStudentId(legacyStudentId) && legacyStudentId !== id) {
+      const guest = db.prepare("SELECT student_id FROM student_profiles WHERE student_id = ?").get(legacyStudentId);
+      if (guest) {
+        db.prepare("UPDATE saved_items SET student_id = ? WHERE student_id = ?").run(id, legacyStudentId);
+        db.prepare("UPDATE quiz_attempts SET student_id = ? WHERE student_id = ?").run(id, legacyStudentId);
+        db.prepare("DELETE FROM student_profiles WHERE student_id = ?").run(legacyStudentId);
+      }
+    }
+
+    return { id, email, createdAt };
+  });
+
+  return create.immediate();
 }
 
 export function findStudentAccountByEmail(email) {
