@@ -1024,14 +1024,15 @@ async function run() {
     );
     addSaveResultControl(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("AI Guru request failed:", error);
 
-    output.textContent =
-      `Request failed: ${
-        error instanceof Error
-          ? error.message
-          : "Unknown error"
-      }`;
+    if (message.toLowerCase().includes("safety guardrail")) {
+      output.innerHTML = renderMarkdown(message);
+      return;
+    }
+
+    output.textContent = `Request failed: ${message}`;
   }
 }
 
