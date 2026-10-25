@@ -9,7 +9,7 @@ const overridePatterns = [
   /\b(reveal|print|repeat|show|dump|expose)\b.{0,40}\b(system|developer|hidden|internal)\b.{0,20}\b(prompt|instructions?|rules?)\b/i,
   /\b(you are now|pretend to be|act as)\b.{0,40}\b(unrestricted|unfiltered|without rules|no rules|dan|jailbreak)\b/i,
   /\b(do my graded assignment for me|give me only the final answer for my exam|write my entire graded assignment)\b/i,
-  /\b(build|create|write|deploy|code)\b.{0,50}\b(ransomware|keylogger|credential stealer|password stealer)\b/i,
+  /\b(build|create|write|deploy|code|make)\b.{0,60}\b(malware|ransomware|keylogger|credential stealer|password stealer|steal credentials|steal passwords)\b/i,
 ];
 
 const refusalMessage =
@@ -27,14 +27,15 @@ function normalizeInput(input) {
 
 export function guardPrompt(input) {
   const normalized = normalizeInput(input);
-  const phraseMatch = blockedPhrases.some((phrase) => {
-    if (phrase === "malware") return /\bmalware\b/i.test(normalized);
-    return normalized.includes(phrase);
-  });
+  const phraseMatch = blockedPhrases.some((phrase) => normalized.includes(phrase));
   const patternMatch = overridePatterns.some((pattern) => pattern.test(normalized));
 
   if (phraseMatch || patternMatch) {
-    return { allowed: false, code: "GUARDRAIL_BLOCK", message: refusalMessage };
+    return {
+      allowed: false,
+      code: "GUARDRAIL_BLOCK",
+      message: refusalMessage,
+    };
   }
 
   return { allowed: true, code: "ALLOWED", message: "Allowed" };
