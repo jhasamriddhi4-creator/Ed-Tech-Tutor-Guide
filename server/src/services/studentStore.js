@@ -15,6 +15,13 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS student_profiles (
     student_id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL
@@ -73,6 +80,37 @@ function ensureStudent(studentId) {
      VALUES (?, ?)
      ON CONFLICT(student_id) DO NOTHING`
   ).run(studentId, now);
+}
+
+export function createStudentAccount(id, email, passwordHash, legacyStudentId = null) {
+  const create = db.transaction(() => {
+    const createdAt = new Date().toISOString();
+    db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
+      .run(id, email, passwordHash, createdAt);
+    ensureStudent(id);
+
+    // Carry this browser's old guest-mode history into the first registered account.
+    if (isValidStudentId(legacyStudentId) && legacyStudentId !== id) {
+      const guest = db.prepare("SELECT student_id FROM student_profiles WHERE student_id = ?").get(legacyStudentId);
+      if (guest) {
+        db.prepare("UPDATE saved_items SET student_id = ? WHERE student_id = ?").run(id, legacyStudentId);
+        db.prepare("UPDATE quiz_attempts SET student_id = ? WHERE student_id = ?").run(id, legacyStudentId);
+        db.prepare("DELETE FROM student_profiles WHERE student_id = ?").run(legacyStudentId);
+      }
+    }
+
+    return { id, email, createdAt };
+  });
+
+  return create.immediate();
+}
+
+export function findStudentAccountByEmail(email) {
+  return db.prepare("SELECT id, email, password_hash AS passwordHash, created_at AS createdAt FROM users WHERE email = ? COLLATE NOCASE").get(email);
+}
+
+export function findStudentAccountById(id) {
+  return db.prepare("SELECT id, email, created_at AS createdAt FROM users WHERE id = ?").get(id);
 }
 
 export function getStudentData(studentId) {

@@ -4,9 +4,12 @@ import {
   generateText,
   generateStructured,
 } from "../services/geminiProvider.js";
-import { isValidStudentId, recordQuizAttempt } from "../services/studentStore.js";
+import { recordQuizAttempt } from "../services/studentStore.js";
+import { requireAuth } from "./auth.js";
+import { transcribeAudio } from "../services/geminiProvider.js";
 
 const router = Router();
+router.use(requireAuth);
 const quizSessions = new Map();
 
 const NOT_FOUND =
@@ -197,9 +200,9 @@ router.post("/quiz/:quizId/submit", (req, res) => {
     results,
   };
 
-  if (session.studentId) {
+  if (session.userId === req.user.id) {
     try {
-      recordQuizAttempt(session.studentId, {
+      recordQuizAttempt(session.userId, {
         topic: session.topic,
         difficulty: session.difficulty,
         score: result.score,
@@ -208,6 +211,11 @@ router.post("/quiz/:quizId/submit", (req, res) => {
     } catch (error) {
       console.error("Unable to save quiz attempt:", error);
     }
+  } else {
+    return res.status(403).json({
+      success: false,
+      message: "This quiz belongs to a different account.",
+    });
   }
 
   // A quiz session can be submitted only once to prevent duplicate history.
@@ -217,6 +225,52 @@ router.post("/quiz/:quizId/submit", (req, res) => {
     success: true,
     result,
   });
+});
+
+router.post("/transcribe", async (req, res) => {
+  try {
+    const audioBase64 = typeof req.body?.audioBase64 === "string" ? req.body.audioBase64 : "";
+    const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType.split(";")[0] : "";
+    const allowedMimeTypes = new Set([
+      "audio/webm",
+      "audio/ogg",
+      "audio/mp4",
+      "audio/mpeg",
+      "audio/wav",
+      "audio/x-wav",
+    ]);
+
+    if (!audioBase64 || audioBase64.length > 1_500_000 || !allowedMimeTypes.has(mimeType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide a short supported audio recording (WebM, Ogg, MP4, MP3 or WAV; max about 1 MB).",
+      });
+    }
+
+    const audio = Buffer.from(audioBase64, "base64");
+    if (!audio.length || audio.length > 1_100_000) {
+      return res.status(400).json({
+        success: false,
+        message: "The recording is empty or too large. Try a shorter recording.",
+      });
+    }
+
+    const transcript = await transcribeAudio(audio.toString("base64"), mimeType);
+    if (!transcript.trim()) {
+      return res.status(422).json({
+        success: false,
+        message: "I couldn't detect any words. Please try speaking more clearly.",
+      });
+    }
+
+    return res.json({ success: true, result: { transcript: transcript.trim() } });
+  } catch (error) {
+    console.error("Voice transcription failed:", error);
+    return res.status(502).json({
+      success: false,
+      message: "Voice transcription failed. You can type your question instead.",
+    });
+  }
 });
 
 router.post("/:task", async (req, res) => {
@@ -286,13 +340,9 @@ router.post("/:task", async (req, res) => {
         if (oldestId) quizSessions.delete(oldestId);
       }
 
-      const studentId = isValidStudentId(body.studentId)
-        ? body.studentId
-        : null;
-
       quizSessions.set(quizId, {
         ...quiz,
-        studentId,
+        userId: req.user.id,
       });
 
       return res.json({

@@ -14,14 +14,27 @@
                     <h1>Learn Smarter. Practice Better. Grow Faster.</h1>
                     <p>Portfolio-ready capstone for Computer Science students: multi-LLM tutoring, RAG PDF chat, learning agents, safety guardrails and analytics.</p>
                 </div>
-                <div class="login">
-                    <h3>Student Login</h3>
-                    <input placeholder="email@student.com"/>
-                    <input placeholder="password" type="password"/>
-                    <button>Sign in / Sign up</button>
+                <div class="account-bar" id="accountBar" hidden>
+                    <span id="accountEmail"></span>
+                    <button type="button" id="logoutButton" class="voice-secondary">Sign out</button>
                 </div>
             </section>
 
+            <section class="auth-gate" id="authGate">
+                <form id="authForm" class="auth-card">
+                    <h2 id="authTitle">Sign in to AI Guru</h2>
+                    <p id="authSubtitle">Sign in to save your learning progress and use your personal study space.</p>
+                    <label for="authEmail">Email address</label>
+                    <input id="authEmail" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"/>
+                    <label for="authPassword">Password</label>
+                    <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128" placeholder="At least 10 characters"/>
+                    <button id="authSubmit" type="submit">Sign in</button>
+                    <button id="authModeToggle" class="link-button" type="button">New here? Create an account</button>
+                    <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+
+            <div id="appContent" hidden>
             <section class="grid cards" id="cards">
             </section>
             
@@ -68,6 +81,7 @@
                     <div id="barChart" class="chart"></div>
                 </article>
             </section>
+            </div>
         </main>
         
         <script type="module" src="src/app.js"></script>

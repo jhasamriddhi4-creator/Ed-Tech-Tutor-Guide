@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAuth } from "./auth.js";
 import {
   deleteLearningItem,
   getStudentData,
@@ -7,6 +8,7 @@ import {
 } from "../services/studentStore.js";
 
 const router = Router();
+router.use(requireAuth);
 const MAX_TITLE_LENGTH = 160;
 const MAX_CONTENT_LENGTH = 100_000;
 const ALLOWED_TYPES = new Set([
@@ -20,10 +22,10 @@ const ALLOWED_TYPES = new Set([
 function validStudentParam(req, res) {
   const studentId = req.params.studentId;
 
-  if (!isValidStudentId(studentId)) {
-    res.status(400).json({
+  if (!isValidStudentId(studentId) || studentId !== req.user.id) {
+    res.status(403).json({
       success: false,
-      message: "The student ID is invalid. Refresh the app and try again.",
+      message: "You can only access your own student data.",
     });
     return null;
   }

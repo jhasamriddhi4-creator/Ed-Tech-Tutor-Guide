@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import aiRoutes from "./routes/ai.js";
 import studentRoutes from "./routes/student.js";
+import authRoutes from "./routes/auth.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -13,6 +14,7 @@ app.use(
       "http://localhost:5173",
       "http://127.0.0.1:5173",
     ],
+    credentials: true,
   })
 );
 
@@ -31,6 +33,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.use("/api/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/students", studentRoutes);
 
