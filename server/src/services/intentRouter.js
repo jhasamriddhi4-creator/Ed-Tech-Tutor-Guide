@@ -24,15 +24,13 @@ export function isLiveWeatherRequest(input) {
 
   const mentionsWeather =
     /\b(weather|forecast|temperature|humidity|raining|rain|snowing|snow)\b/.test(text);
-  const directWeatherQuestion =
-    /\bhow(?:'s| is|s)\s+(?:the\s+)?weather\b/.test(text) ||
-    /\bwhat(?:'s| is)\s+(?:the\s+)?weather(?:\s+like)?\b/.test(text) ||
-    /\b(?:is it raining|will it rain|forecast for|weather update)\b/.test(text);
-  const currentTimeReference =
-    /\b(today|tonight|tomorrow|now|right now|current|currently|this week|live|today's|tomorrow's)\b/.test(text) &&
-    /\b(weather|forecast|temperature|humidity|rain|snow)\b/.test(text);
+  const asksAboutCurrentConditions =
+    /\b(how|what|is|will|can)\b.{0,35}\b(weather|forecast|temperature|humidity|rain|snow)\b/.test(text) ||
+    /\b(weather|forecast|temperature|humidity|rain|snow)\b.{0,35}\b(today|tonight|tomorrow|now|right now|current|currently|this week|live)\b/.test(text);
+  const mentionsEducationalWeatherTopic =
+    /\b(weather formation|weather patterns|weather and climate|weather vs climate|weather systems|weather process|how weather forms|meteorology|weather api|forecast api|weather app|weather prediction model)\b/.test(text);
 
-  return mentionsWeather && (directWeatherQuestion || currentTimeReference);
+  return mentionsWeather && asksAboutCurrentConditions && !mentionsEducationalWeatherTopic;
 }
 
 export function isLiveDataRequest(input) {
