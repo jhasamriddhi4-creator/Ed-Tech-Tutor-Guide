@@ -1,4 +1,4 @@
-import { guardPrompt } from "../prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
+import { guardPrompt } from "../prompts/guardrails.js?v=pdf-rag-weather-20261026-1";
 
 const API_BASE_URL =
   globalThis.AI_GURU_API_URL || "http://localhost:5000";
@@ -81,6 +81,45 @@ export function askTutor(question) {
 
 export function ragAnswer(question, sourceText) {
   return postJSON("/api/ai/rag", { question, sourceText });
+}
+
+export async function uploadPdfForRag(file) {
+  if (!(file instanceof File)) {
+    throw new Error("Choose a PDF file to upload.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("PDF must be 10 MB or smaller.");
+  }
+  if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    throw new Error("Choose a PDF file.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/ai/pdf-text`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+  } catch {
+    throw new Error("Cannot reach the AI Guru backend. Make sure the server is running on port 5000.");
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("The backend returned an invalid PDF extraction response.");
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || `PDF extraction failed (${response.status}).`);
+  }
+
+  return data.result;
 }
 
 export function generateQuiz(topic, options = {}) {
