@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { GoogleGenAI } from "@google/genai";
+import { withEducationalGuardrails } from "./guardrails.js";
 
 let client;
 
@@ -30,7 +31,7 @@ export async function generateText(
 
   const response = await ai.interactions.create({
     model: getModel(),
-    input: prompt,
+    input: withEducationalGuardrails(prompt),
     generation_config: {
       max_output_tokens: maxOutputTokens,
     },
@@ -50,7 +51,7 @@ export async function generateStructured(prompt, schema) {
 
   const response = await ai.interactions.create({
     model: getModel(),
-    input: prompt,
+    input: withEducationalGuardrails(prompt),
 
     response_format: {
       type: "text",
