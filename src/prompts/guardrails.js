@@ -60,11 +60,11 @@ function collectText(input, depth = 0) {
   if (depth > 8 || input == null) return "";
   if (typeof input === "string") return input;
   if (typeof input === "number" || typeof input === "boolean") return String(input);
-  if (Array.isArray(input)) return input.map((item) => collectText(item, depth + 1)).join("\\n");
+  if (Array.isArray(input)) return input.map((item) => collectText(item, depth + 1)).join("\n");
   if (typeof input === "object") {
     return Object.entries(input)
       .map(([key, value]) => `${key}: ${collectText(value, depth + 1)}`)
-      .join("\\n");
+      .join("\n");
   }
   return "";
 }
@@ -72,19 +72,19 @@ function collectText(input, depth = 0) {
 function normalizeInput(input) {
   return String(input ?? "")
     .normalize("NFKC")
-    .replace(/[\\u200B-\\u200D\\uFEFF]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/[’‘]/g, "'")
     .toLowerCase()
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function decodeEscapes(text) {
   return text
-    .replace(/\\\\u\\{([0-9a-f]{1,6})\\}/gi, (_, hex) => safeCodePoint(hex))
-    .replace(/\\\\u([0-9a-f]{4})/gi, (_, hex) => safeCodePoint(hex))
-    .replace(/\\\\x([0-9a-f]{2})/gi, (_, hex) => safeCodePoint(hex))
-    .replace(/\\\\([0-9a-f]{1,6})(?:\\s)?/gi, (_, hex) => safeCodePoint(hex));
+    .replace(/\\u\{([0-9a-f]{1,6})\}/gi, (_, hex) => safeCodePoint(hex))
+    .replace(/\\u([0-9a-f]{4})/gi, (_, hex) => safeCodePoint(hex))
+    .replace(/\\x([0-9a-f]{2})/gi, (_, hex) => safeCodePoint(hex))
+    .replace(/\\([0-9a-f]{1,6})(?:\s)?/gi, (_, hex) => safeCodePoint(hex));
 }
 
 function safeCodePoint(hex) {
@@ -100,7 +100,7 @@ function decodePercentAndHtml(text) {
   let result = text;
   for (let i = 0; i < 2; i += 1) {
     try {
-      const decoded = decodeURIComponent(result.replace(/\\+/g, "%20"));
+      const decoded = decodeURIComponent(result.replace(/\+/g, "%20"));
       if (decoded === result) break;
       result = decoded;
     } catch {
@@ -128,7 +128,7 @@ function decodeBase64Candidates(text) {
   if (typeof globalThis.atob !== "function") return candidates;
 
   const tokens = text.match(/[A-Za-z0-9+/_-]{24,}={0,2}/g) || [];
-  for (const token of tokens.slice(0, 40)) {
+  for (const token of tokens) {
     if (token.length % 4 === 1) continue;
     try {
       const normalized = token.replace(/-/g, "+").replace(/_/g, "/");
@@ -152,9 +152,9 @@ function decodeBase64Candidates(text) {
 
 function decodeHexAndBinary(text) {
   const candidates = [];
-  const hexTokens = text.match(/(?:0x)?\\b[0-9a-f]{24,}\\b/gi) || [];
+  const hexTokens = text.match(/(?:0x)?\b[0-9a-f]{24,}\b/gi) || [];
 
-  for (const token of hexTokens.slice(0, 20)) {
+  for (const token of hexTokens) {
     const hex = token.replace(/^0x/i, "");
     if (hex.length % 2 !== 0) continue;
     try {
@@ -171,8 +171,8 @@ function decodeHexAndBinary(text) {
     }
   }
 
-  const binaryTokens = text.match(/(?:\\b[01]{8}[\\s,;:-]*){8,}/g) || [];
-  for (const token of binaryTokens.slice(0, 10)) {
+  const binaryTokens = text.match(/(?:\b[01]{8}[\s,;:-]*){8,}/g) || [];
+  for (const token of binaryTokens) {
     const octets = token.match(/[01]{8}/g) || [];
     try {
       const bytes = Uint8Array.from(octets, (bits) => Number.parseInt(bits, 2));
@@ -193,36 +193,27 @@ function decodeRot13(text) {
 }
 
 function decodeVariants(input) {
-  const variants = [];
-  const queue = [String(input ?? "").slice(0, 20000)];
-  const seen = new Set();
+  const original = String(input ?? "").slice(0, 20000);
+  const escaped = decodeEscapes(original);
+  const percentDecoded = decodePercentAndHtml(original);
+  const escapedPercentDecoded = decodeEscapes(percentDecoded);
+  const seeds = [original, escaped, percentDecoded, escapedPercentDecoded];
+  const variants = [
+    ...seeds,
+    decodeRot13(original),
+    original.split("").reverse().join(""),
+    original.split(/(\s+)/).map((part) =>
+      /^\s+$/.test(part) ? part : part.split("").reverse().join("")
+    ).join("\n"),
+  ];
 
-  while (queue.length && variants.length < 80) {
-    const current = queue.shift();
-    if (typeof current !== "string" || !current || seen.has(current)) continue;
-    seen.add(current);
-    variants.push(current);
-
-    const decoded = [
-      decodeEscapes(current),
-      decodePercentAndHtml(current),
-      ...decodeBase64Candidates(current),
-      ...decodeHexAndBinary(current),
-      decodeRot13(current),
-      current.split("").reverse().join(""),
-      current.split(/(\\s+)/).map((part) =>
-        /^\\s+$/.test(part) ? part : part.split("").reverse().join("")
-      ).join(""),
-    ];
-
-    for (const next of decoded) {
-      if (next && next !== current && !seen.has(next) && queue.length < 80) {
-        queue.push(next.slice(0, 20000));
-      }
-    }
+  for (const seed of seeds) {
+    variants.push(...decodeBase64Candidates(seed));
+    variants.push(...decodeHexAndBinary(seed));
   }
 
-  return variants;
+  return [...new Set(variants.filter((candidate) => typeof candidate === "string" && candidate))]
+    .slice(0, 4000);
 }
 
 function isBlockedText(input) {
