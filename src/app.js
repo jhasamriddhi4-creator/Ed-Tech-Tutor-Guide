@@ -15,6 +15,7 @@ import {
   logoutAccount,
   transcribeVoice,
 } from "./services/aiGuru.js";
+import { guardPrompt } from "./prompts/guardrails.js";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -487,16 +488,41 @@ function speakAnswer(text) {
 }
 
 async function answerVoiceQuestion(question) {
+  const normalizedQuestion = String(question ?? "").trim();
+  const answerBox = document.querySelector("#voiceAnswer");
+  const saveButton = document.querySelector("#saveVoiceAnswer");
+  const saveStatus = document.querySelector("#saveVoiceStatus");
+
+  if (!normalizedQuestion) {
+    setVoiceStatus("I couldn't detect a question. Please try again or type one.");
+    return;
+  }
+
+  // Run the same client-side guard before sending a transcribed voice question.
+  // The backend independently enforces its own guardrails as the source of truth.
+  const localGuard = guardPrompt(normalizedQuestion);
+  if (!localGuard.allowed) {
+    lastTutorAnswer = "";
+    lastVoiceQuestion = "";
+    if (answerBox) answerBox.innerHTML = renderMarkdown(localGuard.message);
+    if (saveButton) {
+      saveButton.hidden = false;
+      saveButton.disabled = true;
+      saveButton.textContent = "☆ Save to My Library";
+    }
+    if (saveStatus) saveStatus.textContent = "Blocked requests cannot be saved.";
+    setVoiceStatus(localGuard.message);
+    speakAnswer(localGuard.message);
+    return;
+  }
+
   setVoiceStatus("AI Guru is thinking...");
   try {
-    const answer = await askTutor(question);
+    const answer = await askTutor(normalizedQuestion);
     lastTutorAnswer = answer;
-    lastVoiceQuestion = question;
-    const answerBox = document.querySelector("#voiceAnswer");
-    if (answerBox) answerBox.innerHTML = renderMarkdown(answer);
+    lastVoiceQuestion = normalizedQuestion;
 
-    const saveButton = document.querySelector("#saveVoiceAnswer");
-    const saveStatus = document.querySelector("#saveVoiceStatus");
+    if (answerBox) answerBox.innerHTML = renderMarkdown(answer);
     if (saveButton) {
       saveButton.hidden = false;
       saveButton.disabled = false;
@@ -507,10 +533,34 @@ async function answerVoiceQuestion(question) {
     setVoiceStatus("Answer ready. Reading it aloud...");
     speakAnswer(answer);
   } catch (error) {
-    setVoiceStatus(error instanceof Error ? error.message : "Unable to contact AI Guru.");
+    const message = error instanceof Error ? error.message : "Unable to contact AI Guru.";
+    const isGuardrailBlock = message.toLowerCase().includes("safety guardrail");
+
+    if (isGuardrailBlock) {
+      lastTutorAnswer = "";
+      lastVoiceQuestion = "";
+      if (answerBox) answerBox.innerHTML = renderMarkdown(message);
+      if (saveButton) {
+        saveButton.hidden = false;
+        saveButton.disabled = true;
+        saveButton.textContent = "☆ Save to My Library";
+      }
+      if (saveStatus) saveStatus.textContent = "Blocked requests cannot be saved.";
+      setVoiceStatus(message);
+      speakAnswer(message);
+      return;
+    }
+
+    setVoiceStatus(message);
+    if (answerBox) {
+      answerBox.textContent = message;
+    }
+    if (saveButton) {
+      saveButton.hidden = false;
+      saveButton.disabled = !lastTutorAnswer || !lastVoiceQuestion;
+    }
   }
 }
-
 function stopVoiceTracks() {
   if (recordingTimeout) {
     clearTimeout(recordingTimeout);
@@ -574,7 +624,7 @@ async function transcribeRecording(blob) {
   }
 }
 
-function renderVoiceUI(answer = "") {
+function renderVoiceUI(answer = lastTutorAnswer) {
   output.replaceChildren();
   const wrapper = element("div", "voice-panel");
   wrapper.append(
@@ -603,9 +653,13 @@ function renderVoiceUI(answer = "") {
   const saveButton = element("button", "quiz-submit", "☆ Save to My Library");
   saveButton.type = "button";
   saveButton.id = "saveVoiceAnswer";
-  saveButton.hidden = !answer;
+  saveButton.hidden = false;
+  saveButton.disabled = !(answer && lastVoiceQuestion);
   const saveStatus = element("p", "quiz-status", "");
   saveStatus.id = "saveVoiceStatus";
+  saveStatus.textContent = saveButton.disabled
+    ? "Generate a voice answer to enable saving."
+    : "";
   saveControls.append(saveButton, saveStatus);
 
   controls.append(startButton, stopButton, repeatButton, stopSpeechButton);

@@ -7,6 +7,7 @@ import {
 import { recordQuizAttempt } from "../services/studentStore.js";
 import { requireAuth } from "./auth.js";
 import { transcribeAudio } from "../services/geminiProvider.js";
+import { evaluateInputGuardrails } from "../services/guardrails.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -15,25 +16,6 @@ const quizSessions = new Map();
 const NOT_FOUND =
   "I could not find this information in the supplied material.";
 
-function guardPrompt(input) {
-  const normalized = String(input || "").toLowerCase();
-
-  const blocked = [
-    "ignore previous instructions",
-    "bypass safety",
-    "give direct assignment answer",
-  ];
-
-  if (blocked.some((term) => normalized.includes(term))) {
-    return {
-      allowed: false,
-      message:
-        "Safety Guardrail: I can guide your learning step by step, but I cannot bypass instructions or provide direct graded-work answers.",
-    };
-  }
-
-  return { allowed: true };
-}
 
 const quizSchema = {
   type: "object",
@@ -284,7 +266,7 @@ router.post("/:task", async (req, res) => {
     const code = String(body.code || "").trim();
     const goal = String(body.goal || question || "").trim();
 
-    const guard = guardPrompt(
+    const guard = evaluateInputGuardrails(
       [question, topic, code, goal].join("\n")
     );
 
