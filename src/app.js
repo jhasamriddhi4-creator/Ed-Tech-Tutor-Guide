@@ -14,8 +14,8 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js";
-import { guardPrompt } from "./prompts/guardrails.js";
+} from "./services/aiGuru.js?v=guardrails-all-tabs-20261025-2";
+import { guardPrompt } from "./prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -1024,14 +1024,15 @@ async function run() {
     );
     addSaveResultControl(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("AI Guru request failed:", error);
 
-    output.textContent =
-      `Request failed: ${
-        error instanceof Error
-          ? error.message
-          : "Unknown error"
-      }`;
+    if (message.toLowerCase().includes("safety guardrail")) {
+      output.innerHTML = renderMarkdown(message);
+      return;
+    }
+
+    output.textContent = `Request failed: ${message}`;
   }
 }
 

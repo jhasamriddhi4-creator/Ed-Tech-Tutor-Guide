@@ -89,6 +89,24 @@ npm run build
 - During registration, the current browser can migrate its existing guest quiz history and saved items into the new account.
 - Before public production deployment, add rate limiting, email verification, password reset, security monitoring, and a CSRF review; use HTTPS.
 
+## Safety guardrails
+
+AI generation routes (Tutor, document Q&A, Quiz Generator, Code Review, Notes, and Study Roadmap) run through the same server-side input guard before a model request. The frontend runs a matching check for immediate feedback. Gemini generation requests also receive shared safety instructions through the Interactions API `system_instruction` field; voice transcription itself is transcription-only, and the resulting transcript is checked before the tutor answers it.
+
+For local verification:
+
+```bash
+# From the repository root
+npm run build
+
+# From the server folder
+npm test
+```
+
+The backend health endpoint at `http://localhost:5000/api/health` reports the active guardrail version. Restart the backend after pulling changes, then check that this version is `2026-10-25.2`.
+
+These are deterministic pattern checks plus model instructions, not a guarantee of detecting every harmful or evasive request. Keep the API authenticated, review blocked/allowed examples, and extend tests when new bypass patterns are found.
+
 ## Current limitations / next steps
 
 - Add email verification, password reset, and authentication rate limiting before public deployment.

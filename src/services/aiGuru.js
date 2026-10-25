@@ -1,3 +1,5 @@
+import { guardPrompt } from "../prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
+
 const API_BASE_URL =
   globalThis.AI_GURU_API_URL || "http://localhost:5000";
 
@@ -33,7 +35,45 @@ async function requestJSON(path, options = {}) {
   return data.result;
 }
 
+function guardAIRequest(path, payload = {}) {
+  // Check the user-controlled instruction for every AI generation endpoint.
+  // Document text is treated as untrusted source material, not as a new instruction.
+  let input;
+
+  switch (path) {
+    case "/api/ai/tutor":
+      input = payload.question;
+      break;
+    case "/api/ai/rag":
+      input = payload.question;
+      break;
+    case "/api/ai/quiz":
+      input = payload.topic;
+      break;
+    case "/api/ai/code":
+      input = payload.code;
+      break;
+    case "/api/ai/notes":
+      input = payload.topic;
+      break;
+    case "/api/ai/roadmap":
+      input = payload.goal;
+      break;
+    default:
+      return;
+  }
+
+  const check = guardPrompt(input);
+  if (!check.allowed) {
+    throw new Error(check.message);
+  }
+}
+
 function postJSON(path, payload) {
+  if (path.startsWith("/api/ai/")) {
+    guardAIRequest(path, payload);
+  }
+
   return requestJSON(path, {
     method: "POST",
     body: JSON.stringify(payload),
