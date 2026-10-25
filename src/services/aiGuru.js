@@ -44,8 +44,8 @@ function getStudentPath(studentId) {
   return `/api/students/${encodeURIComponent(studentId)}`;
 }
 
-export function registerAccount(email, password) {
-  return postJSON("/api/auth/register", { email, password });
+export function registerAccount(email, password, legacyStudentId = null) {
+  return postJSON("/api/auth/register", { email, password, legacyStudentId });
 }
 
 export function loginAccount(email, password) {
