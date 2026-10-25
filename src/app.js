@@ -14,8 +14,8 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js?v=block-obfuscated-injection-20261025-3";
-import { guardPrompt } from "./prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
+} from "./services/aiGuru.js?v=intent-aware-routing-20261025-4";
+import { guardPrompt } from "./prompts/guardrails.js?v=intent-aware-routing-20261025-4";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -65,21 +65,22 @@ async function runQuiz() {
     quizCount.value = String(count);
   }
 
-  return generateQuiz(
-    prompt.value.trim() || "Binary Search",
-    {
-      numberOfQuestions: count,
-      difficulty,
-      studentId
-    }
-  );
+  const topic = prompt.value.trim();
+  if (!topic) {
+    throw new Error("Please enter a specific topic for the quiz.");
+  }
+
+  return generateQuiz(topic, {
+    numberOfQuestions: count,
+    difficulty,
+    studentId
+  });
 }
-const DEFAULT_TUTOR_PROMPT =
-  "Explain Binary Search at beginner, intermediate and advanced levels.";
 
 let active = "tutor";
 
-prompt.value = DEFAULT_TUTOR_PROMPT;
+prompt.value = "";
+prompt.placeholder = "Ask a Computer Science question...";
 
 pdf.value =
   "Operating systems manage processes, memory, files, and devices. " +
@@ -256,6 +257,16 @@ function renderTabs() {
       });
       title.textContent = tabs[active];
       pdf.hidden = active !== "rag";
+      prompt.placeholder = {
+        tutor: "Ask a Computer Science question...",
+        rag: "Ask a question about the supplied study material...",
+        quiz: "Enter one specific quiz topic...",
+        code: "Paste code for review...",
+        notes: "Enter a specific notes topic...",
+        roadmap: "Enter a learning goal...",
+        voice: "Ask or speak a question...",
+        library: "Saved resources",
+      }[active] || "Enter your learning request...";
       updateQuizOptions();
 
       if (active === "voice") {
@@ -992,22 +1003,23 @@ async function run() {
 
     quiz: () => runQuiz(),
 
-    code: () =>
-      evaluateCode(
-        prompt.value.trim() ||
-          "function add(a, b) { return a + b; }"
-      ),
+    code: () => {
+      const code = prompt.value.trim();
+      if (!code) throw new Error("Please paste the code you want reviewed.");
+      return evaluateCode(code);
+    },
 
-    notes: () =>
-      generateNotes(
-        prompt.value.trim() || "Machine Learning"
-      ),
+    notes: () => {
+      const topic = prompt.value.trim();
+      if (!topic) throw new Error("Please enter a specific subject or topic for your notes.");
+      return generateNotes(topic);
+    },
 
-    roadmap: () =>
-      planRoadmap(
-        prompt.value.trim() ||
-          "Prepare for a software engineering internship in six months"
-      ),
+    roadmap: () => {
+      const goal = prompt.value.trim();
+      if (!goal) throw new Error("Please enter a specific learning goal for the planner.");
+      return planRoadmap(goal);
+    },
 
   };
 
@@ -1037,7 +1049,15 @@ async function run() {
       return;
     }
 
-    output.textContent = `Request failed: ${message}`;
+    const isInputGuidance =
+      message.startsWith("Please enter") ||
+      message.startsWith("Please paste") ||
+      message.startsWith("This feature creates study material") ||
+      message.startsWith("Enter a question") ||
+      message.startsWith("I can’t check") ||
+      message.startsWith("I can’t retrieve");
+
+    output.textContent = isInputGuidance ? message : `Request failed: ${message}`;
   }
 }
 

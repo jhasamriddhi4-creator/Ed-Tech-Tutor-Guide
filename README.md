@@ -103,9 +103,17 @@ npm run build
 npm test
 ```
 
-The backend health endpoint at `http://localhost:5000/api/health` reports the active guardrail version. Restart the backend after pulling changes, then check that this version is `2026-10-25.3`.
+The backend health endpoint at `http://localhost:5000/api/health` reports the active guardrail version. Restart the backend after pulling changes, then check that this version is `2026-10-25.4`.
 
 These are deterministic pattern checks plus model instructions, not a guarantee of detecting every harmful or evasive request. Keep the API authenticated, review blocked/allowed examples, and extend tests when new bypass patterns are found.
+
+## Intent-aware AI responses
+
+- Casual greetings in AI Tutor receive a brief conversational response instead of a long Computer Science lesson.
+- Current weather and other live-data questions receive a short limitation message rather than invented live facts or an unrelated programming lesson.
+- Quiz, notes, and planner tabs require a specific study topic or goal; empty inputs and vague requests such as `random questions` no longer trigger fallback topics.
+- Quiz prompts explicitly require every question to remain relevant to the exact supplied topic.
+- The API health endpoint reports guardrail version `2026-10-25.4`.
 
 ## Current limitations / next steps
 
