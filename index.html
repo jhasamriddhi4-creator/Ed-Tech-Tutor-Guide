@@ -44,14 +44,33 @@
                 <div class="workspace">
                     <h2 id="title">AI Tutor</h2>
                     <section id="ragControls" class="rag-controls" hidden>
-                        <label for="pdfFile">Upload a PDF for document Q&A (max 10 MB; scanned PDFs use Gemini OCR)</label>
-                        <div class="rag-upload-row">
-                            <input id="pdfFile" type="file" accept="application/pdf,.pdf"/>
-                            <button id="uploadPdfButton" type="button" class="voice-secondary">Extract PDF text</button>
+                        <fieldset class="rag-source-choice">
+                            <legend>Choose how to provide study material</legend>
+                            <label class="rag-choice">
+                                <input type="radio" name="ragSourceMode" value="pdf" checked/>
+                                <span>Upload and extract PDF</span>
+                            </label>
+                            <label class="rag-choice">
+                                <input type="radio" name="ragSourceMode" value="paste"/>
+                                <span>Paste text</span>
+                            </label>
+                        </fieldset>
+
+                        <div id="ragPdfPanel" class="rag-source-panel">
+                            <label for="pdfFile">Upload a PDF (max 10 MB; scanned PDFs use Gemini OCR)</label>
+                            <div class="rag-upload-row">
+                                <input id="pdfFile" type="file" accept="application/pdf,.pdf"/>
+                                <button id="uploadPdfButton" type="button" class="voice-secondary">Extract PDF text</button>
+                            </div>
+                            <p id="pdfStatus" class="rag-status" role="status" aria-live="polite">Choose a PDF and select Extract PDF text.</p>
+                            <label for="pdfExtractedText">Extracted study text (review or edit before asking)</label>
+                            <textarea id="pdfExtractedText" placeholder="Extracted PDF text will appear here..."></textarea>
                         </div>
-                        <p id="pdfStatus" class="rag-status" role="status" aria-live="polite">Or paste your study text below.</p>
-                        <label for="pdf">Study text used as the source (you can edit after extraction)</label>
-                        <textarea id="pdf" placeholder="Paste text from your notes, textbook, or PDF here..."></textarea>
+
+                        <div id="ragPastePanel" class="rag-source-panel" hidden>
+                            <label for="pdf">Paste your study material</label>
+                            <textarea id="pdf" placeholder="Paste text from your notes, textbook, lecture, or PDF here..."></textarea>
+                        </div>
                     </section>
                     <textarea id="prompt"></textarea>
                     <button id="run">Run AI Guru</button>
@@ -93,6 +112,6 @@
             </div>
         </main>
         
-        <script type="module" src="src/app.js?v=pdf-rag-ocr-20261027-1"></script>
+        <script type="module" src="src/app.js?v=rag-source-choice-20261027-1"></script>
     </body>
 </html>
