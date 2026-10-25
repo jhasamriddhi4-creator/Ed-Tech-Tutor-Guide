@@ -67,3 +67,26 @@ test("tutor does not mistake current weather for a coding question", () => {
   assert.equal(result.action, "reply");
   assert.match(result.result, /can’t check today’s live weather/i);
 });
+
+
+test("weather API and weather app design questions remain educational", () => {
+  assert.equal(isLiveWeatherRequest("What is a weather API?"), false);
+  assert.equal(isLiveWeatherRequest("Explain how a weather app retrieves forecasts."), false);
+});
+
+test("rejects vague random-quiz wording when no real topic is named", () => {
+  for (const topic of [
+    "Make a random quiz for random questions",
+    "Generate some random questions",
+    "Make me a quiz about anything",
+  ]) {
+    assert.equal(routeStudentRequest("quiz", { topic }).action, "reject", topic);
+  }
+});
+
+test("allows a random-style quiz when a real topic is specified", () => {
+  assert.equal(
+    routeStudentRequest("quiz", { topic: "Make a random quiz about Data Structures" }).action,
+    "continue"
+  );
+});
