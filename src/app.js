@@ -14,8 +14,8 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js?v=guardrails-all-tabs-20261025-2";
-import { guardPrompt } from "./prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
+} from "./services/aiGuru.js?v=block-obfuscated-injection-20261025-3";
+import { guardPrompt } from "./prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
@@ -534,7 +534,9 @@ async function answerVoiceQuestion(question) {
     speakAnswer(answer);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to contact AI Guru.";
-    const isGuardrailBlock = message.toLowerCase().includes("safety guardrail");
+    const isGuardrailBlock =
+      message === "I can’t help with that request." ||
+      message.toLowerCase().includes("safety guardrail");
 
     if (isGuardrailBlock) {
       lastTutorAnswer = "";
@@ -1027,7 +1029,10 @@ async function run() {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("AI Guru request failed:", error);
 
-    if (message.toLowerCase().includes("safety guardrail")) {
+    if (
+      message === "I can’t help with that request." ||
+      message.toLowerCase().includes("safety guardrail")
+    ) {
       output.innerHTML = renderMarkdown(message);
       return;
     }

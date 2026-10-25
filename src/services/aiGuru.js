@@ -1,4 +1,4 @@
-import { guardPrompt } from "../prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
+import { guardPrompt } from "../prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
 
 const API_BASE_URL =
   globalThis.AI_GURU_API_URL || "http://localhost:5000";
@@ -36,34 +36,9 @@ async function requestJSON(path, options = {}) {
 }
 
 function guardAIRequest(path, payload = {}) {
-  // Check the user-controlled instruction for every AI generation endpoint.
-  // Document text is treated as untrusted source material, not as a new instruction.
-  let input;
-
-  switch (path) {
-    case "/api/ai/tutor":
-      input = payload.question;
-      break;
-    case "/api/ai/rag":
-      input = payload.question;
-      break;
-    case "/api/ai/quiz":
-      input = payload.topic;
-      break;
-    case "/api/ai/code":
-      input = payload.code;
-      break;
-    case "/api/ai/notes":
-      input = payload.topic;
-      break;
-    case "/api/ai/roadmap":
-      input = payload.goal;
-      break;
-    default:
-      return;
-  }
-
-  const check = guardPrompt(input);
+  // Inspect all submitted fields, including code strings, comments, and pasted
+  // source text, so an injection cannot hide outside the primary task field.
+  const check = guardPrompt(payload);
   if (!check.allowed) {
     throw new Error(check.message);
   }

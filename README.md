@@ -103,7 +103,7 @@ npm run build
 npm test
 ```
 
-The backend health endpoint at `http://localhost:5000/api/health` reports the active guardrail version. Restart the backend after pulling changes, then check that this version is `2026-10-25.2`.
+The backend health endpoint at `http://localhost:5000/api/health` reports the active guardrail version. Restart the backend after pulling changes, then check that this version is `2026-10-25.3`.
 
 These are deterministic pattern checks plus model instructions, not a guarantee of detecting every harmful or evasive request. Keep the API authenticated, review blocked/allowed examples, and extend tests when new bypass patterns are found.
 
