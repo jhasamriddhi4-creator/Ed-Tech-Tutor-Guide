@@ -4,6 +4,7 @@ import {
   generateText,
   generateStructured,
 } from "../services/geminiProvider.js";
+import { isValidStudentId, recordQuizAttempt } from "../services/studentStore.js";
 
 const router = Router();
 const quizSessions = new Map();
@@ -187,16 +188,34 @@ router.post("/quiz/:quizId/submit", (req, res) => {
     };
   });
 
+  const result = {
+    score,
+    total: session.questions.length,
+    accuracy: Math.round(
+      (score / session.questions.length) * 100
+    ),
+    results,
+  };
+
+  if (session.studentId) {
+    try {
+      recordQuizAttempt(session.studentId, {
+        topic: session.topic,
+        difficulty: session.difficulty,
+        score: result.score,
+        total: result.total,
+      });
+    } catch (error) {
+      console.error("Unable to save quiz attempt:", error);
+    }
+  }
+
+  // A quiz session can be submitted only once to prevent duplicate history.
+  quizSessions.delete(req.params.quizId);
+
   return res.json({
     success: true,
-    result: {
-      score,
-      total: session.questions.length,
-      accuracy: Math.round(
-        (score / session.questions.length) * 100
-      ),
-      results,
-    },
+    result,
   });
 });
 
@@ -267,7 +286,14 @@ router.post("/:task", async (req, res) => {
         if (oldestId) quizSessions.delete(oldestId);
       }
 
-      quizSessions.set(quizId, quiz);
+      const studentId = isValidStudentId(body.studentId)
+        ? body.studentId
+        : null;
+
+      quizSessions.set(quizId, {
+        ...quiz,
+        studentId,
+      });
 
       return res.json({
         success: true,
