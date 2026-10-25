@@ -926,12 +926,112 @@ async function run() {
 }
 
 
-renderCards();
+const authForm = document.querySelector("#authForm");
+const authEmail = document.querySelector("#authEmail");
+const authPassword = document.querySelector("#authPassword");
+const authSubmit = document.querySelector("#authSubmit");
+const authModeToggle = document.querySelector("#authModeToggle");
+const authTitle = document.querySelector("#authTitle");
+const authSubtitle = document.querySelector("#authSubtitle");
+const authMessage = document.querySelector("#authMessage");
+const authGate = document.querySelector("#authGate");
+const appContent = document.querySelector("#appContent");
+const accountBar = document.querySelector("#accountBar");
+const accountEmail = document.querySelector("#accountEmail");
+const logoutButton = document.querySelector("#logoutButton");
+
+let authMode = "login";
+
+function showAuthMessage(message, success = false) {
+  if (!authMessage) return;
+  authMessage.textContent = message;
+  authMessage.classList.toggle("success", success);
+}
+
+function renderAuthMode() {
+  const registering = authMode === "register";
+  authTitle.textContent = registering ? "Create your student account" : "Sign in to AI Guru";
+  authSubtitle.textContent = registering
+    ? "Create an account to keep your saved resources and quiz progress with you."
+    : "Sign in to continue learning and access your saved progress.";
+  authSubmit.textContent = registering ? "Create account" : "Sign in";
+  authModeToggle.textContent = registering
+    ? "Already have an account? Sign in"
+    : "New here? Create an account";
+  authPassword.autocomplete = registering ? "new-password" : "current-password";
+  authPassword.minLength = registering ? 10 : 1;
+  showAuthMessage("");
+}
+
+function showAuthenticatedApp(user) {
+  currentUser = user;
+  studentId = user.id;
+  authGate.hidden = true;
+  appContent.hidden = false;
+  accountBar.hidden = false;
+  accountEmail.textContent = user.email;
+  renderCards();
+  renderTabs();
+  renderDashboardCharts();
+  output.textContent = "Select an AI feature, enter your input, and click Run AI Guru.";
+  return loadStudentData();
+}
+
+function showSignedOutApp() {
+  currentUser = null;
+  studentId = null;
+  studentData = { savedItems: [], quizAttempts: [] };
+  authGate.hidden = false;
+  appContent.hidden = true;
+  accountBar.hidden = true;
+  renderAuthMode();
+}
+
+authModeToggle.addEventListener("click", () => {
+  authMode = authMode === "login" ? "register" : "login";
+  renderAuthMode();
+});
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  authSubmit.disabled = true;
+  authModeToggle.disabled = true;
+  showAuthMessage(authMode === "register" ? "Creating your account..." : "Signing you in...");
+
+  try {
+    const user = authMode === "register"
+      ? await registerAccount(email, password)
+      : await loginAccount(email, password);
+    authPassword.value = "";
+    await showAuthenticatedApp(user);
+  } catch (error) {
+    showAuthMessage(error instanceof Error ? error.message : "Authentication failed.");
+  } finally {
+    authSubmit.disabled = false;
+    authModeToggle.disabled = false;
+  }
+});
+
+logoutButton.addEventListener("click", async () => {
+  logoutButton.disabled = true;
+  try {
+    await logoutAccount();
+  } catch (error) {
+    console.warn("Logout request failed:", error);
+  } finally {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    stopVoiceTracks();
+    showSignedOutApp();
+    logoutButton.disabled = false;
+  }
+});
+
+renderAuthMode();
 renderTabs();
-renderDashboardCharts();
-
-output.textContent =
-  "Select an AI feature, enter your input, and click Run AI Guru.";
-
 document.querySelector("#run").addEventListener("click", run);
-loadStudentData();
+
+getCurrentAccount()
+  .then(showAuthenticatedApp)
+  .catch(() => showSignedOutApp());
