@@ -1001,8 +1001,15 @@ authForm.addEventListener("submit", async (event) => {
   showAuthMessage(authMode === "register" ? "Creating your account..." : "Signing you in...");
 
   try {
+    let legacyStudentId = null;
+    try {
+      legacyStudentId = localStorage.getItem("aiGuruStudentId");
+    } catch {
+      // Browser storage may be disabled; account creation still works.
+    }
+
     const user = authMode === "register"
-      ? await registerAccount(email, password)
+      ? await registerAccount(email, password, legacyStudentId)
       : await loginAccount(email, password);
     authPassword.value = "";
     await showAuthenticatedApp(user);
