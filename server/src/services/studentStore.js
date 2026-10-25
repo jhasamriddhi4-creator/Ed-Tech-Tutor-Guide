@@ -15,6 +15,13 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS student_profiles (
     student_id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL
@@ -73,6 +80,18 @@ function ensureStudent(studentId) {
      VALUES (?, ?)
      ON CONFLICT(student_id) DO NOTHING`
   ).run(studentId, now);
+}
+
+export function createStudentAccount(id, email, passwordHash) {
+  const createdAt = new Date().toISOString();
+  db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
+    .run(id, email, passwordHash, createdAt);
+  ensureStudent(id);
+  return { id, email, createdAt };
+}
+
+export function findStudentAccountByEmail(email) {
+  return db.prepare("SELECT id, email, password_hash AS passwordHash, created_at AS createdAt FROM users WHERE email = ? COLLATE NOCASE").get(email);
 }
 
 export function getStudentData(studentId) {
