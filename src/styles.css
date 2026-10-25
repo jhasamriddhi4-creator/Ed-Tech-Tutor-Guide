@@ -397,3 +397,52 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+
+.rag-source-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+}
+
+.rag-source-choice legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.rag-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+}
+
+.rag-choice input {
+  margin: 0;
+  accent-color: #3548a5;
+}
+
+.rag-source-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rag-source-panel textarea {
+  width: 100%;
+  min-height: 180px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.rag-source-panel[hidden] {
+  display: none;
+}
