@@ -29,6 +29,10 @@ app.get("/api/health", (_req, res) => {
     success: true,
     service: "AI Guru API",
     provider: "Gemini",
+    guardrails: {
+      enabled: true,
+      version: "2026-10-25.2",
+    },
     apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
   });
 });
