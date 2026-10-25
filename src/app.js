@@ -14,8 +14,8 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js?v=block-obfuscated-injection-20261025-3";
-import { guardPrompt } from "./prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
+} from "./services/aiGuru.js?v=intent-aware-routing-20261025-4";
+import { guardPrompt } from "./prompts/guardrails.js?v=intent-aware-routing-20261025-4";
 
 const tabs = {
   tutor: "🎓 AI Tutor",
