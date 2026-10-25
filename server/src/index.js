@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import aiRoutes from "./routes/ai.js";
+import studentRoutes from "./routes/student.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -31,6 +32,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/ai", aiRoutes);
+app.use("/api/students", studentRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error("Unhandled API error:", err);
