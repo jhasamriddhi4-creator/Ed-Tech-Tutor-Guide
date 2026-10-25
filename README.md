@@ -13,7 +13,7 @@ AI Guru is a student-focused Computer Science learning prototype with Gemini-bac
 - **Progress Dashboard:** quiz count, average quiz accuracy, saved resources, practiced topics, accuracy history, and per-topic accuracy are derived from stored records.
 - **Code Review:** educational feedback on supplied code; it does not execute code.
 - **Study Roadmap and Notes:** generated on request.
-- **Document-grounded Q&A:** answers from text supplied in the document text area. PDF file extraction and vector search are not implemented yet.
+- **Document-grounded Q&A:** answers from pasted text or extracted PDF text. Text-based PDFs use local text extraction; scanned/image-only PDFs fall back to Gemini OCR. Vector search is not implemented yet.
 - **Voice Tutor:** records a short microphone clip, transcribes it with Gemini audio understanding, answers the question, and reads the answer aloud where browser speech synthesis is supported.
 - **Student accounts:** email/password registration and sign-in, scrypt password hashing, signed HttpOnly session cookie, and server-side ownership checks for AI and saved student data.
 
@@ -113,21 +113,21 @@ These are deterministic pattern checks plus model instructions, not a guarantee 
 - Current weather and other live-data questions receive a short limitation message rather than invented live facts or an unrelated programming lesson.
 - Quiz, notes, and planner tabs require a specific study topic or goal; empty inputs and vague requests such as `random questions` no longer trigger fallback topics.
 - Quiz prompts explicitly require every question to remain relevant to the exact supplied topic.
-- The API health endpoint reports guardrail version `2026-10-25.4`.
+- The API health endpoint reports guardrail version `2026-10-26.1`.
 
 ## PDF RAG and live-weather intent handling
 
-- PDF RAG accepts either pasted study text or a text-based PDF uploaded through the student interface.
-- The authenticated PDF extraction endpoint accepts one PDF up to 10 MB, processes it in memory, and returns extracted text for document-grounded questions. Extracted text is not saved to disk automatically.
+- PDF RAG accepts pasted study text, text-based PDFs, and scanned/image-only PDFs uploaded through the student interface.
+- The authenticated PDF extraction endpoint accepts one PDF up to 10 MB, processes it in memory, and returns extracted text for document-grounded questions. Text-based PDFs use `pdf-parse`; if little text is found, Gemini document OCR attempts to transcribe scanned pages. Extracted text and files are not saved automatically.
 - The RAG answer uses only the supplied text, treats document content as untrusted, and returns a clear message if the question or source text is missing.
-- PDFs are limited to the first 120,000 extracted characters for context. Scanned/image-only PDFs need OCR, which is not currently included.
+- PDFs are limited to the first 120,000 extracted characters for context. OCR relies on the configured Gemini model, API quota, and document-input support; output may be incomplete for long or low-quality scans. Clear scans work best.
 - Short questions such as "How is weather?" are treated as live-condition requests and are rejected by study-generation tabs. Educational topics such as weather formation and weather API design remain available.
 - The API health endpoint reports version `2026-10-26.1`.
 
 ## Current limitations / next steps
 
 - Add email verification, password reset, and authentication rate limiting before public deployment.
-- Add PDF upload and text extraction.
+- Add chunking, embeddings, and semantic retrieval for large documents.
 - Add chunking, embeddings, and semantic retrieval for large documents.
 - Add automated integration tests and production deployment configuration.
 - Improve prompt-injection protections and API rate limiting.
