@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import pdfParse from "pdf-parse";
+import { shouldUsePdfOcr } from "../services/pdfTextQuality.js";
 import { randomUUID } from "node:crypto";
 import {
   generateText,
@@ -199,18 +200,20 @@ router.post("/pdf-text", (req, res, next) => {
     let text = "";
     let extractionError = null;
     let extractionMethod = "pdf-text";
+    let pageCount = 1;
 
     // Try local text extraction first. A parser failure must not prevent the
     // OCR fallback because some scanned PDFs are malformed for text parsers.
     try {
       const parsed = await pdfParse(file.buffer);
       text = String(parsed.text || "").replace(/\\u0000/g, "").trim();
+      pageCount = Number(parsed.numpages) || 1;
     } catch (error) {
       extractionError = error;
       console.warn("PDF text extraction failed; trying Gemini OCR:", error?.message || error);
     }
 
-    if (text.length < 40) {
+    if (shouldUsePdfOcr(text, pageCount)) {
       try {
         text = await extractPdfTextWithGemini(file.buffer);
         extractionMethod = "gemini-ocr";
