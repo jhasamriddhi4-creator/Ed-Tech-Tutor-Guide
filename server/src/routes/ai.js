@@ -11,6 +11,51 @@ import { evaluateInputGuardrails } from "../services/guardrails.js";
 
 const router = Router();
 router.use(requireAuth);
+
+// One server-side gate for each AI generation endpoint.
+// Transcription returns speech as text only; the resulting question is checked again by /tutor.
+router.use((req, res, next) => {
+  if (req.method !== "POST") return next();
+
+  const path = req.path.replace(/\\/+$/, "") || "/";
+  if (path === "/transcribe" || /^\\/quiz\\/[^/]+\\/submit$/.test(path)) {
+    return next();
+  }
+
+  const body = req.body || {};
+  let userInput;
+
+  switch (path) {
+    case "/tutor":
+    case "/rag":
+      userInput = body.question;
+      break;
+    case "/quiz":
+    case "/notes":
+      userInput = body.topic;
+      break;
+    case "/code":
+      userInput = body.code;
+      break;
+    case "/roadmap":
+      userInput = body.goal;
+      break;
+    default:
+      return next();
+  }
+
+  const guard = evaluateInputGuardrails(userInput);
+  if (!guard.allowed) {
+    return res.status(400).json({
+      success: false,
+      code: guard.code,
+      message: guard.message,
+    });
+  }
+
+  return next();
+});
+
 const quizSessions = new Map();
 
 const NOT_FOUND =
@@ -265,17 +310,6 @@ router.post("/:task", async (req, res) => {
     const sourceText = String(body.sourceText || "").trim();
     const code = String(body.code || "").trim();
     const goal = String(body.goal || question || "").trim();
-
-    const guard = evaluateInputGuardrails(
-      [question, topic, code, goal].join("\n")
-    );
-
-    if (!guard.allowed) {
-      return res.status(400).json({
-        success: false,
-        message: guard.message,
-      });
-    }
 
     if (task === "quiz") {
       if (!topic) {
