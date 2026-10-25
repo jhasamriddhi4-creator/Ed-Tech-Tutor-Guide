@@ -1,16 +1,16 @@
 const API_BASE_URL =
   globalThis.AI_GURU_API_URL || "http://localhost:5000";
 
-async function postJSON(path, payload) {
+async function requestJSON(path, options = {}) {
   let response;
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(options.headers || {}),
       },
-      body: JSON.stringify(payload),
     });
   } catch {
     throw new Error(
@@ -23,67 +23,74 @@ async function postJSON(path, payload) {
   try {
     data = await response.json();
   } catch {
-    throw new Error(
-      "The backend returned an invalid response."
-    );
+    throw new Error("The backend returned an invalid response.");
   }
 
   if (!response.ok || !data.success) {
-    throw new Error(
-      data.message || `AI request failed (${response.status}).`
-    );
+    throw new Error(data.message || `AI request failed (${response.status}).`);
   }
 
   return data.result;
 }
 
-export function askTutor(question) {
-  return postJSON("/api/ai/tutor", {
-    question,
+function postJSON(path, payload) {
+  return requestJSON(path, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
+}
+
+function getStudentPath(studentId) {
+  return `/api/students/${encodeURIComponent(studentId)}`;
+}
+
+export function askTutor(question) {
+  return postJSON("/api/ai/tutor", { question });
 }
 
 export function ragAnswer(question, sourceText) {
-  return postJSON("/api/ai/rag", {
-    question,
-    sourceText,
-  });
+  return postJSON("/api/ai/rag", { question, sourceText });
 }
 
-export function generateQuiz(
-  topic,
-  options = {}
-) {
+export function generateQuiz(topic, options = {}) {
   return postJSON("/api/ai/quiz", {
     topic,
-    numberOfQuestions:
-      options.numberOfQuestions ?? 5,
-    difficulty:
-      options.difficulty ?? "medium",
+    numberOfQuestions: options.numberOfQuestions ?? 5,
+    difficulty: options.difficulty ?? "medium",
+    studentId: options.studentId,
   });
 }
 
-export function submitQuiz(quizId, answers) {
+export function submitQuiz(quizId, answers, studentId) {
   return postJSON(
     `/api/ai/quiz/${encodeURIComponent(quizId)}/submit`,
-    { answers }
+    { answers, studentId }
   );
 }
 
 export function evaluateCode(code) {
-  return postJSON("/api/ai/code", {
-    code,
-  });
+  return postJSON("/api/ai/code", { code });
 }
 
 export function generateNotes(topic) {
-  return postJSON("/api/ai/notes", {
-    topic,
-  });
+  return postJSON("/api/ai/notes", { topic });
 }
 
 export function planRoadmap(goal) {
-  return postJSON("/api/ai/roadmap", {
-    goal,
-  });
+  return postJSON("/api/ai/roadmap", { goal });
+}
+
+export function getStudentData(studentId) {
+  return requestJSON(getStudentPath(studentId), { method: "GET" });
+}
+
+export function saveLearningItem(studentId, item) {
+  return postJSON(`${getStudentPath(studentId)}/saves`, item);
+}
+
+export function deleteLearningItem(studentId, itemId) {
+  return requestJSON(
+    `${getStudentPath(studentId)}/saves/${encodeURIComponent(itemId)}`,
+    { method: "DELETE" }
+  );
 }
