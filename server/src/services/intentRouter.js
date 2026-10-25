@@ -14,8 +14,8 @@ export function isSimpleGreeting(input) {
 
 export function isLiveWeatherRequest(input) {
   const text = normalize(input);
-  const asksHowTo = /\b(how to|how do i|how can i|build|create|code|develop|make)\b.{0,60}\b(weather app|weather api|forecast app|forecast api|weather prediction model)\b/.test(text);
-  if (asksHowTo) return false;
+  const mentionsWeatherTechnology = /\b(weather api|forecast api|weather app|weather prediction model)\b/.test(text);
+  if (mentionsWeatherTechnology) return false;
 
   const mentionsWeather = /\b(weather|forecast|temperature|humidity|raining|rain|snowing|snow)\b/.test(text);
   const asksForCurrent = /\b(today|tonight|tomorrow|now|right now|current|currently|this week|what is the weather|what's the weather|how is the weather|how's the weather|weather in|forecast for|will it rain|is it raining)\b/.test(text);
@@ -30,7 +30,16 @@ export function isLiveDataRequest(input) {
 
 function isVagueTopic(input) {
   const text = normalize(input);
-  return /^(?:|random|random questions?|any topic|anything|whatever|surprise me|general questions?|some questions?|a quiz|quiz|notes|study plan|make me a plan)$/.test(text);
+  if (/^(?:|random|random questions?|any topic|anything|whatever|surprise me|general questions?|some questions?|a quiz|quiz|notes|study plan|make me a plan)$/.test(text)) {
+    return true;
+  }
+
+  const asksForUnspecifiedContent =
+    /\b(random questions?|anything|any topic|whatever|surprise me|general questions?)\b/.test(text);
+  const namesASpecificTopic =
+    /\b(?:about|on|covering|for the topic)\s+(?!random questions?\b|anything\b|any topic\b|whatever\b)[a-z0-9]/.test(text);
+
+  return asksForUnspecifiedContent && !namesASpecificTopic;
 }
 
 function inputMessage(task) {
