@@ -14,7 +14,8 @@ import {
   getCurrentAccount,
   logoutAccount,
   transcribeVoice,
-} from "./services/aiGuru.js?v=intent-aware-routing-20261025-4";
+  uploadPdfForRag,
+} from "./services/aiGuru.js?v=pdf-rag-weather-20261026-1";
 import { guardPrompt } from "./prompts/guardrails.js?v=intent-aware-routing-20261025-4";
 
 const tabs = {
@@ -30,6 +31,10 @@ const tabs = {
 
 const prompt = document.querySelector("#prompt");
 const pdf = document.querySelector("#pdf");
+const pdfFile = document.querySelector("#pdfFile");
+const uploadPdfButton = document.querySelector("#uploadPdfButton");
+const pdfStatus = document.querySelector("#pdfStatus");
+const ragControls = document.querySelector("#ragControls");
 const output = document.querySelector("#output");
 const title = document.querySelector("#title");
 const quizOptions = document.querySelector("#quizOptions");
@@ -82,9 +87,7 @@ let active = "tutor";
 prompt.value = "";
 prompt.placeholder = "Ask a Computer Science question...";
 
-pdf.value =
-  "Operating systems manage processes, memory, files, and devices. " +
-  "A process is a program in execution. Scheduling decides which process runs next.";
+pdf.value = "";
 
 // These cards will be connected to real learning analytics later.
 function renderCards() {
@@ -256,7 +259,7 @@ function renderTabs() {
         tabButton.classList.toggle("active", tabButton === button);
       });
       title.textContent = tabs[active];
-      pdf.hidden = active !== "rag";
+      ragControls.hidden = active !== "rag";
       prompt.placeholder = {
         tutor: "Ask a Computer Science question...",
         rag: "Ask a question about the supplied study material...",
@@ -999,7 +1002,13 @@ async function run() {
   const actions = {
     tutor: () => askTutor(prompt.value),
 
-    rag: () => ragAnswer(prompt.value, pdf.value),
+    rag: () => {
+      const question = prompt.value.trim();
+      const sourceText = pdf.value.trim();
+      if (!question) throw new Error("Please enter a question about the supplied study material.");
+      if (!sourceText) throw new Error("Upload a readable PDF or paste study text before asking a question.");
+      return ragAnswer(question, sourceText);
+    },
 
     quiz: () => runQuiz(),
 
@@ -1174,6 +1183,33 @@ logoutButton.addEventListener("click", async () => {
 renderAuthMode();
 renderTabs();
 document.querySelector("#run").addEventListener("click", run);
+
+uploadPdfButton.addEventListener("click", async () => {
+  const file = pdfFile.files?.[0];
+  if (!file) {
+    pdfStatus.textContent = "Choose a PDF file first.";
+    return;
+  }
+
+  uploadPdfButton.disabled = true;
+  pdfStatus.textContent = "Extracting text from PDF...";
+  try {
+    const result = await uploadPdfForRag(file);
+    pdf.value = result.text;
+    pdfStatus.textContent = result.truncated
+      ? `Extracted text from ${result.fileName}; only the first ${result.characters.toLocaleString()} characters were loaded. This PDF was too long to include in full.`
+      : `Extracted ${result.characters.toLocaleString()} characters from ${result.fileName}. You can edit the text below before asking a question.`;
+    active = "rag";
+    renderTabs();
+    title.textContent = tabs.rag;
+    ragControls.hidden = false;
+    pdf.focus();
+  } catch (error) {
+    pdfStatus.textContent = error instanceof Error ? error.message : "PDF extraction failed.";
+  } finally {
+    uploadPdfButton.disabled = false;
+  }
+});
 
 getCurrentAccount()
   .then(showAuthenticatedApp)
