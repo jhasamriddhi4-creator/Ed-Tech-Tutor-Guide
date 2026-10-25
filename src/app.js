@@ -9,6 +9,11 @@ import {
   getStudentData,
   saveLearningItem,
   deleteLearningItem,
+  registerAccount,
+  loginAccount,
+  getCurrentAccount,
+  logoutAccount,
+  transcribeVoice,
 } from "./services/aiGuru.js";
 
 const tabs = {
@@ -30,24 +35,8 @@ const quizOptions = document.querySelector("#quizOptions");
 const quizCount = document.querySelector("#quizCount");
 const quizDifficulty = document.querySelector("#quizDifficulty");
 
-function getStudentId() {
-  const storageKey = "aiGuruStudentId";
-
-  try {
-    let id = localStorage.getItem(storageKey);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(storageKey, id);
-    }
-    return id;
-  } catch {
-    // This fallback keeps the app usable when browser storage is disabled.
-    // It will not persist identity across reloads in that case.
-    return `student-${crypto.randomUUID()}`;
-  }
-}
-
-const studentId = getStudentId();
+let currentUser = null;
+let studentId = null;
 let studentData = { savedItems: [], quizAttempts: [] };
 let lastGeneratedContent = "";
 let lastGeneratedType = "";
@@ -156,6 +145,7 @@ function renderDashboardCharts() {
 }
 
 async function loadStudentData() {
+  if (!studentId) return;
   try {
     studentData = await getStudentData(studentId);
     renderCards();
@@ -459,254 +449,228 @@ function renderMarkdown(markdown) {
   return blocks.join("\n");
 }
 
-let currentRecognition = null;
+let currentRecorder = null;
+let currentStream = null;
+let recordingTimeout = null;
 let lastTutorAnswer = "";
 
 function setVoiceStatus(message) {
   const status = document.querySelector("#voiceStatus");
-
-  if (status) {
-    status.textContent = message;
-  }
+  if (status) status.textContent = message;
 }
 
 function speakAnswer(text) {
   if (!("speechSynthesis" in window)) {
-    setVoiceStatus(
-      "Speech output is unavailable in this browser."
-    );
+    setVoiceStatus("Speech output is unavailable in this browser. You can still read the answer below.");
     return;
   }
 
   window.speechSynthesis.cancel();
-
-  // Remove Markdown symbols and simplify code for speech.
   const spokenText = String(text)
     .replace(/```[\s\S]*?```/g, "Code example omitted.")
     .replace(/https?:\/\/\S+/g, "link")
     .replace(/\$([^$]+)\$/g, "$1")
-    .replace(/[#*_`>|]/g, " ")
-    .replace(/[{}\\]/g, " ")
+    .replace(/[#*_\`>|]/g, " ")
+    .replace(/[{}\\\\]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   const utterance = new SpeechSynthesisUtterance(spokenText);
-
   utterance.lang = "en-IN";
   utterance.rate = 1;
   utterance.pitch = 1;
-
-  utterance.onstart = () => {
-    setVoiceStatus("AI Guru is speaking...");
-  };
-
-  utterance.onend = () => {
-    setVoiceStatus("Answer finished. You can ask another question.");
-  };
-
-  utterance.onerror = () => {
-    setVoiceStatus(
-      "Speech output failed. Check your browser's audio settings."
-    );
-  };
-
+  utterance.onstart = () => setVoiceStatus("AI Guru is speaking...");
+  utterance.onend = () => setVoiceStatus("Answer finished. Record another question when ready.");
+  utterance.onerror = () => setVoiceStatus("Speech output failed. You can still read the answer below.");
   window.speechSynthesis.speak(utterance);
 }
 
 async function answerVoiceQuestion(question) {
   setVoiceStatus("AI Guru is thinking...");
+  try {
+    const answer = await askTutor(question);
+    lastTutorAnswer = answer;
+    const answerBox = document.querySelector("#voiceAnswer");
+    if (answerBox) answerBox.innerHTML = renderMarkdown(answer);
+    setVoiceStatus("Answer ready. Reading it aloud...");
+    speakAnswer(answer);
+  } catch (error) {
+    setVoiceStatus(error instanceof Error ? error.message : "Unable to contact AI Guru.");
+  }
+}
+
+function stopVoiceTracks() {
+  if (recordingTimeout) {
+    clearTimeout(recordingTimeout);
+    recordingTimeout = null;
+  }
+  if (currentStream) {
+    currentStream.getTracks().forEach((track) => track.stop());
+    currentStream = null;
+  }
+  currentRecorder = null;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || "");
+      const comma = dataUrl.indexOf(",");
+      if (comma < 0) {
+        reject(new Error("Unable to read the audio recording."));
+        return;
+      }
+      resolve(dataUrl.slice(comma + 1));
+    };
+    reader.onerror = () => reject(new Error("Unable to read the audio recording."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function transcribeRecording(blob) {
+  if (!blob || blob.size === 0) {
+    setVoiceStatus("The recording was empty. Please try again.");
+    return;
+  }
+  if (blob.size > 1_000_000) {
+    setVoiceStatus("That recording was too large. Please try a shorter question.");
+    return;
+  }
 
   try {
-    // This uses the same real backend API as the AI Tutor.
-    const answer = await askTutor(question);
+    setVoiceStatus("Transcribing your recording...");
+    const audioBase64 = await blobToBase64(blob);
+    const mimeType = (blob.type || "audio/webm").split(";")[0];
+    const result = await transcribeVoice(audioBase64, mimeType);
+    const transcript = result?.transcript?.trim();
 
-    lastTutorAnswer = answer;
+    if (!transcript) {
+      setVoiceStatus("I couldn't detect words. Please try again or type your question.");
+      return;
+    }
 
-    renderVoiceUI(answer);
-
-    setVoiceStatus("Answer ready. Reading it aloud...");
-
-    speakAnswer(answer);
+    prompt.value = transcript;
+    setVoiceStatus(`I heard: “${transcript}”`);
+    await answerVoiceQuestion(transcript);
   } catch (error) {
     setVoiceStatus(
       error instanceof Error
-        ? error.message
-        : "Unable to contact AI Guru."
+        ? `${error.message} You can also type your question in the input above.`
+        : "Transcription failed. You can type your question instead."
     );
   }
 }
 
 function renderVoiceUI(answer = "") {
   output.replaceChildren();
-
   const wrapper = element("div", "voice-panel");
-
   wrapper.append(
     element("h3", "quiz-heading", "🎙️ Voice Tutor"),
     element(
       "p",
       "quiz-subtitle",
-      "Ask a Computer Science question naturally. AI Guru will respond aloud."
+      "Record a short question. AI Guru transcribes it with Gemini, answers it, and can read the answer aloud."
     )
   );
 
   const controls = element("div", "voice-controls");
-
-  const startButton = element(
-    "button",
-    "quiz-submit",
-    "🎙️ Start speaking"
-  );
-
-  const stopButton = element(
-    "button",
-    "quiz-submit voice-secondary",
-    "Stop listening"
-  );
-
-  const repeatButton = element(
-    "button",
-    "quiz-submit voice-secondary",
-    "🔊 Read answer again"
-  );
-
-  const stopSpeechButton = element(
-    "button",
-    "quiz-submit voice-secondary",
-    "Stop speaking"
-  );
-
+  const startButton = element("button", "quiz-submit", "🎙️ Record question");
+  const stopButton = element("button", "quiz-submit voice-secondary", "Stop recording");
+  const repeatButton = element("button", "quiz-submit voice-secondary", "🔊 Read answer again");
+  const stopSpeechButton = element("button", "quiz-submit voice-secondary", "Stop speaking");
   stopButton.disabled = true;
 
-  const status = element(
-    "p",
-    "quiz-status",
-    "Click Start speaking and allow microphone access."
-  );
-
+  const status = element("p", "quiz-status", "Click Record question and allow microphone access.");
   status.id = "voiceStatus";
-
   const answerBox = element("div", "ai-response");
   answerBox.id = "voiceAnswer";
   answerBox.innerHTML = renderMarkdown(answer);
 
-  controls.append(
-    startButton,
-    stopButton,
-    repeatButton,
-    stopSpeechButton
-  );
-
+  controls.append(startButton, stopButton, repeatButton, stopSpeechButton);
   wrapper.append(controls, status, answerBox);
   output.append(wrapper);
 
-  startButton.addEventListener("click", () => {
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setVoiceStatus(
-        "Speech recognition is not supported here. Try Chrome or Edge, or type a question and click Run AI Guru."
-      );
+  startButton.addEventListener("click", async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setVoiceStatus("Audio recording is not supported in this browser. Use an up-to-date Chrome or Edge browser, or type your question above.");
       return;
     }
 
-    if (currentRecognition) {
-      currentRecognition.stop();
+    if (currentRecorder && currentRecorder.state !== "inactive") {
+      setVoiceStatus("A recording is already in progress.");
+      return;
     }
 
-    const recognition = new SpeechRecognition();
-
-    currentRecognition = recognition;
-    recognition.lang = "en-IN";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.maxAlternatives = 1;
-
-    startButton.disabled = true;
-    stopButton.disabled = false;
-
-    recognition.onstart = () => {
-      setVoiceStatus("Listening... Please ask your question.");
-    };
-
-    recognition.onresult = async (event) => {
-      const transcript =
-        event.results?.[0]?.[0]?.transcript?.trim();
-
-      if (!transcript) {
-        setVoiceStatus(
-          "I couldn't hear a question clearly. Please try again."
-        );
-        return;
-      }
-
-      // Display the recognized question in the existing input.
-      prompt.value = transcript;
-
-      await answerVoiceQuestion(transcript);
-    };
-
-    recognition.onerror = (event) => {
-      const messages = {
-        "not-allowed":
-          "Microphone access was denied. Allow microphone access in your browser settings.",
-        "no-speech":
-          "No speech was detected. Try speaking a little louder.",
-        "audio-capture":
-          "No usable microphone was found. Check your microphone connection.",
-        network:
-          "Browser speech recognition encountered a network error.",
-      };
-
-      setVoiceStatus(
-        messages[event.error] ||
-          `Speech recognition failed: ${event.error}`
-      );
-    };
-
-    recognition.onend = () => {
-      currentRecognition = null;
-      startButton.disabled = false;
-      stopButton.disabled = true;
-    };
-
     try {
-      recognition.start();
+      setVoiceStatus("Requesting microphone access...");
+      currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const supportedTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      const preferredType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
+      currentRecorder = preferredType
+        ? new MediaRecorder(currentStream, { mimeType: preferredType })
+        : new MediaRecorder(currentStream);
+
+      const recorder = currentRecorder;
+      const chunks = [];
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+      });
+
+      recorder.addEventListener("stop", async () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        stopVoiceTracks();
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        await transcribeRecording(blob);
+      }, { once: true });
+
+      recorder.addEventListener("error", () => {
+        stopVoiceTracks();
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        setVoiceStatus("Microphone recording failed. Check your microphone permissions and try again.");
+      }, { once: true });
+
+      recorder.start();
+      startButton.disabled = true;
+      stopButton.disabled = false;
+      setVoiceStatus("Recording… speak your question now. Recording stops automatically after 12 seconds.");
+      recordingTimeout = setTimeout(() => {
+        if (recorder.state !== "inactive") recorder.stop();
+      }, 12_000);
     } catch (error) {
-      currentRecognition = null;
+      stopVoiceTracks();
       startButton.disabled = false;
       stopButton.disabled = true;
-
-      setVoiceStatus(
-        "Unable to start speech recognition. Please try again."
-      );
+      const message = error?.name === "NotAllowedError"
+        ? "Microphone permission was denied. Allow microphone access in your browser's site settings."
+        : error?.name === "NotFoundError"
+          ? "No microphone was found. Connect a microphone and try again."
+          : "Unable to start recording. Check microphone access and try again.";
+      setVoiceStatus(message);
     }
   });
 
   stopButton.addEventListener("click", () => {
-    if (currentRecognition) {
-      currentRecognition.stop();
-      currentRecognition = null;
+    if (currentRecorder && currentRecorder.state !== "inactive") {
+      currentRecorder.stop();
+      setVoiceStatus("Finishing your recording...");
     }
-
-    setVoiceStatus("Stopped listening.");
   });
 
   repeatButton.addEventListener("click", () => {
-    if (lastTutorAnswer) {
-      speakAnswer(lastTutorAnswer);
-    } else {
-      setVoiceStatus("Ask a question before replaying an answer.");
-    }
+    if (lastTutorAnswer) speakAnswer(lastTutorAnswer);
+    else setVoiceStatus("Ask a question before replaying an answer.");
   });
 
   stopSpeechButton.addEventListener("click", () => {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setVoiceStatus("Speech stopped.");
   });
 }
@@ -796,8 +760,7 @@ function renderQuizUI(quiz) {
     try {
       const result = await submitQuiz(
         quiz.quizId,
-        answers,
-        studentId
+        answers
       );
 
       await loadStudentData();
@@ -885,6 +848,11 @@ function chart(selector, data, key) {
 }
 
 async function run() {
+  if (!currentUser) {
+    showAuthMessage("Please sign in to use AI Guru.");
+    return;
+  }
+
   if (active === "library") {
     renderSavedLibrary();
     return;
