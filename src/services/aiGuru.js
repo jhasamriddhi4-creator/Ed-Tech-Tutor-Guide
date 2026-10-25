@@ -1,4 +1,4 @@
-import { guardPrompt } from "../prompts/guardrails.js?v=guardrails-all-tabs-20261025-2";
+import { guardPrompt } from "../prompts/guardrails.js?v=block-obfuscated-injection-20261025-3";
 
 const API_BASE_URL =
   globalThis.AI_GURU_API_URL || "http://localhost:5000";
