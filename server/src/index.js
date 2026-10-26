@@ -8,12 +8,23 @@ import authRoutes from "./routes/auth.js";
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
+const configuredFrontendOrigins = String(process.env.FRONTEND_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const developmentFrontendOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+const allowedFrontendOrigins = configuredFrontendOrigins.length
+  ? configuredFrontendOrigins
+  : process.env.NODE_ENV === "production"
+    ? []
+    : developmentFrontendOrigins;
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-    ],
+    origin: allowedFrontendOrigins,
     credentials: true,
   })
 );
