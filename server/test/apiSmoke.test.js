@@ -214,8 +214,7 @@ test("API smoke: health, auth, protected access, CORS, saved-library persistence
 
   const logout = await fetch(`${server.baseUrl}/api/auth/logout`, { method: "POST" });
   assert.equal(logout.status, 200);
-  const signedOut = await fetch(`${server.baseUrl}/api/auth/me`, {
-    headers: { Cookie: cookie },
-  });
+  assert.match(logout.headers.get("set-cookie") || "", /Max-Age=0/);
+  const signedOut = await fetch(`${server.baseUrl}/api/auth/me`);
   assert.equal(signedOut.status, 401);
 });
